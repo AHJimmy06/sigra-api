@@ -9,6 +9,7 @@ import { Role } from '../src/common/role.enum';
 import { Roles } from '../src/common/roles.decorator';
 import { RolesGuard } from '../src/common/roles.guard';
 import { User } from '../src/users/user.entity';
+import { configureHttpApp } from '../src/common/http/configure-http-app';
 
 @Controller('protected')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -56,11 +57,12 @@ describe('JWT authentication and role enforcement (e2e)', () => {
       ],
     }).compile();
     app = module.createNestApplication();
+    configureHttpApp(app);
     jwt = module.get(JwtService);
     await app.init();
   });
   it('rejects missing bearer authentication', () =>
-    request(app.getHttpServer()).get('/protected/admin').expect(401));
+    request(app.getHttpServer()).get('/api/protected/admin').expect(401));
   it('rejects a valid token with the wrong role', async () => {
     const token = await jwt.signAsync({
       sub: 'guard-1',
@@ -69,9 +71,29 @@ describe('JWT authentication and role enforcement (e2e)', () => {
       residentId: null,
     });
     return request(app.getHttpServer())
-      .get('/protected/admin')
+      .get('/api/protected/admin')
       .set('Authorization', `Bearer ${token}`)
       .expect(403);
+  });
+  it('normalizes an expired signed token as unauthorized', async () => {
+    const token = await jwt.signAsync(
+      {
+        sub: 'admin-1',
+        email: 'admin@example.com',
+        role: Role.ADMIN,
+        residentId: null,
+      },
+      { expiresIn: -1 },
+    );
+    const response = await request(app.getHttpServer())
+      .get('/api/protected/admin')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(401);
+    expect(response.body).toEqual({
+      code: 'UNAUTHORIZED',
+      message: 'Invalid or expired token',
+      requestId: response.headers['x-request-id'],
+    });
   });
   it('allows the required role', async () => {
     const token = await jwt.signAsync({
@@ -81,7 +103,7 @@ describe('JWT authentication and role enforcement (e2e)', () => {
       residentId: null,
     });
     return request(app.getHttpServer())
-      .get('/protected/admin')
+      .get('/api/protected/admin')
       .set('Authorization', `Bearer ${token}`)
       .expect(200, { ok: true });
   });
