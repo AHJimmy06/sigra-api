@@ -1,44 +1,66 @@
-import {
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { QueryFailedError, Repository } from 'typeorm';
-import { CreateUnitDto, UpdateUnitDto } from './unit.dto';
+import { Repository } from 'typeorm';
 import { ResidentialUnit } from './unit.entity';
+import { CreateUnitDto, UpdateUnitDto } from './unit.dto';
 
 @Injectable()
 export class UnitsService {
   constructor(
     @InjectRepository(ResidentialUnit)
-    private readonly units: Repository<ResidentialUnit>,
+    private readonly unitRepository: Repository<ResidentialUnit>,
   ) {}
-  list() {
-    return this.units.find({ order: { code: 'ASC' } });
-  }
-  create(dto: CreateUnitDto) {
-    return this.units.save(this.units.create(dto));
-  }
-  async update(id: string, dto: UpdateUnitDto) {
-    const unit = await this.units.findOneBy({ id });
-    if (!unit) throw new NotFoundException('Unit not found');
-    return this.units.save(this.units.merge(unit, dto));
-  }
-  async remove(id: string) {
-    try {
-      const result = await this.units.delete(id);
-      if (!result.affected) throw new NotFoundException('Unit not found');
-    } catch (error) {
-      if (
-        error instanceof QueryFailedError &&
-        (error.driverError as { code?: string }).code === '23503'
-      ) {
-        throw new ConflictException(
-          'Unit cannot be deleted while residents are linked to it',
-        );
-      }
-      throw error;
+
+  async list(params: {
+    page: number;
+    pageSize: number;
+    search?: string;
+    status?: string;
+  }) {
+    const { page, pageSize, search } = params;
+    const query = this.unitRepository.createQueryBuilder('unit');
+
+    if (search) {
+      query.andWhere(
+        '(unit.code ILIKE :search OR unit.address ILIKE :search)',
+        {
+          search: `%${search}%`,
+        },
+      );
     }
+
+    query.skip((page - 1) * pageSize).take(pageSize);
+    query.orderBy('unit.createdAt', 'DESC');
+
+    const [items, total] = await query.getManyAndCount();
+
+    return {
+      items,
+      total,
+      page,
+      pageSize,
+    };
+  }
+
+  async create(dto: CreateUnitDto) {
+    const unit = this.unitRepository.create(dto);
+    return await this.unitRepository.save(unit);
+  }
+
+  async update(id: string, dto: UpdateUnitDto) {
+    const unit = await this.unitRepository.findOne({ where: { id } });
+    if (!unit) {
+      throw new NotFoundException('Unit not found.');
+    }
+    Object.assign(unit, dto);
+    return await this.unitRepository.save(unit);
+  }
+
+  async remove(id: string) {
+    const unit = await this.unitRepository.findOne({ where: { id } });
+    if (!unit) {
+      throw new NotFoundException('Unit not found.');
+    }
+    await this.unitRepository.remove(unit);
   }
 }
