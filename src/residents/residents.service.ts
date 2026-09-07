@@ -4,9 +4,10 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { Resident } from './resident.entity';
 import { ResidentialUnit } from '../units/unit.entity';
+import { User } from '../users/user.entity';
 import { CreateResidentDto, UpdateResidentDto } from './resident.dto';
 
 @Injectable()
@@ -16,6 +17,7 @@ export class ResidentsService {
     private readonly residentRepository: Repository<Resident>,
     @InjectRepository(ResidentialUnit)
     private readonly unitRepository: Repository<ResidentialUnit>,
+    private readonly dataSource: DataSource,
   ) {}
 
   // Listado paginado y filtrado según los estándares de la Fase 0
@@ -82,12 +84,42 @@ export class ResidentsService {
   }
 
   async update(id: string, dto: UpdateResidentDto) {
-    const resident = await this.residentRepository.findOne({ where: { id } });
-    if (!resident) {
-      throw new NotFoundException('Resident not found.');
+    // Validar si viene un unitId y si existe antes de hacer la transacción
+    if (dto.unitId) {
+      const unitExists = await this.unitRepository.findOne({
+        where: { id: dto.unitId },
+      });
+      if (!unitExists) {
+        throw new ConflictException({
+          code: 'VALIDATION_ERROR',
+          message: 'La unidad especificada no existe o no es válida.',
+          details: {
+            unitId: ['El ID de la unidad no se encuentra registrado.'],
+          },
+        });
+      }
     }
-    Object.assign(resident, dto);
-    return await this.residentRepository.save(resident);
+
+    return this.dataSource.transaction(async (manager) => {
+      const residentsRepo = manager.getRepository(Resident);
+      const resident = await residentsRepo.findOne({ where: { id } });
+
+      if (!resident) {
+        throw new NotFoundException('Resident not found.');
+      }
+
+      const saved = await residentsRepo.save(
+        residentsRepo.merge(resident, dto),
+      );
+
+      if (dto.active !== undefined) {
+        await manager
+          .getRepository(User)
+          .update({ residentId: id }, { active: dto.active });
+      }
+
+      return saved;
+    });
   }
 
   async remove(id: string) {
@@ -95,9 +127,8 @@ export class ResidentsService {
     if (!resident) {
       throw new NotFoundException('Resident not found.');
     }
-    // Eliminación lógica o desactivación según el negocio
     resident.active = false;
     await this.residentRepository.save(resident);
-    return; // Devuelve vacío para que responda 204 No Content correctamente
+    return;
   }
 }

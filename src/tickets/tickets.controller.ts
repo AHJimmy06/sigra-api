@@ -21,7 +21,7 @@ import { TicketsService } from './tickets.service';
 @Controller('tickets')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class TicketsController {
-  constructor(private readonly ticketsService: TicketsService) {}
+  constructor(private readonly ticketsService: TicketsService, private readonly images: TicketImageStorage,) {}
 
   @Get()
   @Roles(Role.ADMIN, Role.RESIDENT)
