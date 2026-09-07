@@ -11,7 +11,13 @@ import { SecretCryptoService } from './secret-crypto.service';
 describe('AccessService', () => {
   it('validates a current TOTP and deduplicates a repeated client event', async () => {
     const events = new Map<string, AccessEvent>();
-    const resident = { id: 'resident-1', active: true, unit: { active: true } };
+    const occurredAt = new Date('2026-09-07T12:00:00.000Z');
+    const resident = {
+      id: 'resident-1',
+      unitId: 'unit-1',
+      active: true,
+      unit: { id: 'unit-1', active: true },
+    };
     let pass: AccessPass;
     const passes = {
       create: (value: AccessPass) => value,
@@ -36,7 +42,7 @@ describe('AccessService', () => {
         const saved = {
           ...value,
           id: 'event-1',
-          occurredAt: new Date(),
+          occurredAt,
         };
         events.set(value.clientEventId, saved);
         return Promise.resolve(saved);
@@ -69,52 +75,17 @@ describe('AccessService', () => {
       'guard-1',
     );
     expect(first.decision).toBe(AccessDecision.ALLOWED);
+    expect(first).toMatchObject({
+      guardId: 'guard-1',
+      residentId: 'resident-1',
+      unitId: 'unit-1',
+      direction: AccessDirection.ENTRY,
+      decision: AccessDecision.ALLOWED,
+      reason: 'VALID_PASS',
+      occurredAt,
+    });
     expect(second.id).toBe(first.id);
     expect(eventRepository.save).toHaveBeenCalledTimes(1);
-  });
-
-  it('provisions only an active pass owned by the authenticated resident', async () => {
-    const key = Buffer.alloc(32, 8).toString('base64');
-    const crypto = new SecretCryptoService({
-      get: () => key,
-    } as unknown as ConfigService);
-    const pass = {
-      id: '11111111-1111-4111-8111-111111111111',
-      residentId: 'resident-1',
-      encryptedSecret: crypto.encrypt('JBSWY3DPEHPK3PXP'),
-      validUntil: new Date(Date.now() + 60_000),
-      revokedAt: null,
-    } as AccessPass;
-    const passes = {
-      findOneBy: jest.fn(({ id, residentId }) =>
-        Promise.resolve(
-          id === pass.id && residentId === pass.residentId ? pass : null,
-        ),
-      ),
-    };
-    const service = new AccessService(
-      passes as never,
-      {} as never,
-      {} as never,
-      crypto,
-    );
-
-    await expect(service.provision('resident-1', pass.id)).resolves.toEqual({
-      contract: 'sigra.access.v1',
-      passId: pass.id,
-      secret: 'JBSWY3DPEHPK3PXP',
-      algorithm: 'SHA1',
-      digits: 6,
-      period: 30,
-      validUntil: pass.validUntil,
-    });
-    await expect(service.provision('resident-2', pass.id)).rejects.toThrow(
-      'Active pass not found',
-    );
-    expect(passes.findOneBy).toHaveBeenLastCalledWith({
-      id: pass.id,
-      residentId: 'resident-2',
-    });
   });
 
   it('records malformed QR payloads as denied', async () => {
@@ -136,8 +107,36 @@ describe('AccessService', () => {
       'guard-1',
     );
     expect(result).toMatchObject({
+      guardId: 'guard-1',
+      residentId: null,
+      unitId: null,
+      direction: AccessDirection.ENTRY,
       decision: AccessDecision.DENIED,
       reason: 'INVALID_QR',
     });
+  });
+
+  it('returns a short-lived QR without exposing encrypted or decrypted secrets', async () => {
+    const crypto = {
+      decrypt: jest.fn().mockReturnValue('decrypted-secret'),
+    };
+    const pass = {
+      id: 'pass-1',
+      residentId: 'resident-1',
+      encryptedSecret: 'encrypted-secret',
+      validUntil: new Date(Date.now() + 60_000),
+      revokedAt: null,
+    } as AccessPass;
+    const service = new AccessService(
+      { findOneBy: jest.fn().mockResolvedValue(pass) } as never,
+      {} as never,
+      {} as never,
+      crypto as never,
+    );
+
+    const result = await service.currentQr('resident-1', pass.id);
+    expect(JSON.stringify(result)).not.toContain('encrypted-secret');
+    expect(JSON.stringify(result)).not.toContain('decrypted-secret');
+    expect(result.contract).toBe('sigra.access.v1');
   });
 });

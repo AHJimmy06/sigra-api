@@ -1,8 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { NextFunction, Request, Response } from 'express';
+import { Logger } from '@nestjs/common';
 
 const REQUEST_ID = Symbol('request-id');
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9._-]{1,128}$/;
+const logger = new Logger('HttpRequest');
 
 type RequestWithId = Request & { [REQUEST_ID]?: string };
 
@@ -24,6 +26,11 @@ export function requestIdMiddleware(
     writable: false,
   });
   response.setHeader('X-Request-Id', requestId);
+  response.once('finish', () => {
+    logger.log(
+      `${request.method} ${request.path} ${response.statusCode} requestId=${requestId}`,
+    );
+  });
   next();
 }
 

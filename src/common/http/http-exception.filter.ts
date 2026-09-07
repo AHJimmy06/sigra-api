@@ -20,6 +20,7 @@ const ERROR_DEFAULTS: Record<number, [HttpErrorCode, string]> = {
   403: ['FORBIDDEN', 'Forbidden'],
   404: ['NOT_FOUND', 'Not found'],
   409: ['CONFLICT', 'Conflict'],
+  429: ['RATE_LIMITED', 'Too many requests'],
 };
 
 export function normalizeHttpException(exception: unknown): {
@@ -40,7 +41,9 @@ export function normalizeHttpException(exception: unknown): {
     const status = exception.getStatus();
     const defaultEntry = ERROR_DEFAULTS[status];
     if (defaultEntry) {
-      const message = getPublicMessage(exception.getResponse());
+      const exceptionResponse = exception.getResponse();
+      const message = getPublicMessage(exceptionResponse);
+      const details = getPublicDetails(exceptionResponse);
       return {
         status,
         body: {
@@ -49,6 +52,7 @@ export function normalizeHttpException(exception: unknown): {
             message && SAFE_PUBLIC_4XX_MESSAGES.has(message)
               ? message
               : defaultEntry[1],
+          ...(details ? { details } : {}),
         },
       };
     }
@@ -57,6 +61,24 @@ export function normalizeHttpException(exception: unknown): {
     status: HttpStatus.INTERNAL_SERVER_ERROR,
     body: { code: 'INTERNAL_ERROR', message: 'Internal server error' },
   };
+}
+
+function getPublicDetails(
+  response: unknown,
+): Record<string, string[]> | undefined {
+  if (!response || typeof response !== 'object' || !('details' in response)) {
+    return undefined;
+  }
+  const details = response.details;
+  if (!details || typeof details !== 'object' || Array.isArray(details)) {
+    return undefined;
+  }
+  const safeEntries = Object.entries(details).filter(
+    (entry): entry is [string, string[]] =>
+      Array.isArray(entry[1]) &&
+      entry[1].every((value) => typeof value === 'string'),
+  );
+  return safeEntries.length ? Object.fromEntries(safeEntries) : undefined;
 }
 
 function getPublicMessage(response: unknown): string | undefined {

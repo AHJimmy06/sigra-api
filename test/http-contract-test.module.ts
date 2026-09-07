@@ -10,7 +10,9 @@ import {
   Post,
   UnauthorizedException,
   ForbiddenException,
+  UseGuards,
 } from '@nestjs/common';
+import { Throttle, ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { IsEmail, IsString, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -70,5 +72,19 @@ class HttpContractController {
   }
 }
 
-@Module({ controllers: [HttpContractController] })
+@Controller('rate-limit')
+@UseGuards(ThrottlerGuard)
+class RateLimitController {
+  @Get()
+  @Throttle({ default: { limit: 1, ttl: 60_000 } })
+  get() {
+    return { ok: true };
+  }
+}
+
+@Module({
+  imports: [ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }])],
+  controllers: [HttpContractController, RateLimitController],
+  providers: [ThrottlerGuard],
+})
 export class HttpContractTestModule {}

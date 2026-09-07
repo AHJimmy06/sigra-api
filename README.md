@@ -5,7 +5,7 @@ NestJS, TypeORM, and PostgreSQL API for SIGRA administration, resident services,
 ## Requirements
 
 - Node.js 22 or newer
-- PostgreSQL 15 or newer with permission to enable `pgcrypto`
+- PostgreSQL 15 or newer with `pgcrypto` and `pg_trgm` available
 
 ## Local setup
 
@@ -20,6 +20,14 @@ npm run start:dev
 ```
 
 The API is available at `http://localhost:3000/api`. TypeORM `synchronize` is always disabled. Set `DATABASE_RUN_MIGRATIONS=true` only when automatic startup migrations are intentionally desired.
+
+The database role that runs the initial migrations must be allowed to execute
+`CREATE EXTENSION` for both `pgcrypto` and `pg_trgm`. Managed PostgreSQL services
+may require an administrator to enable these extensions before application
+deployment. `pgcrypto` provides `gen_random_uuid()` for primary keys, while
+`pg_trgm` provides the trigram operator classes used by Phase 0 search indexes.
+After the extensions exist, migrations can run under a less-privileged deployment
+role that has the required schema DDL permissions.
 
 ## Development accounts
 
@@ -40,10 +48,23 @@ npm run test:e2e
 
 Resident endpoints create, list, revoke, and render current TOTP passes. QR payloads use the versioned JSON contract `{"v":1,"passId":"uuid","token":"123456"}` and identify themselves as `sigra.access.v1`. TOTP secrets are AES-256-GCM encrypted at rest and never sent to guard clients.
 
-The resident-only `GET /api/access/passes/:id/provision` endpoint returns the authenticated resident's own active pass secret with the deterministic contract `{ contract, passId, secret, algorithm: "SHA1", digits: 6, period: 30, validUntil }`. Ownership is part of the database lookup; ADMIN and GUARD are rejected by the role guard. Responses are marked `no-store`, and application code must never log response bodies. The mobile client stores the seed only in SecureStore. Guard clients never receive verifier secrets.
-
 Guard validation is intentionally online. There is no unsafe offline verifier cache. Clients may retry access writes with the same `clientEventId`; the API's unique idempotency key prevents duplicates. A future offline client must queue the complete validation request and clearly show that authorization is pending until connectivity returns.
 
-Resident mobile generation may happen offline after provisioning, but guard validation remains authoritative and online. A copied or compromised provisioned seed can generate codes until pass expiry. Revocation is enforced immediately by online guard validation, while an offline resident device cannot know that revocation occurred until its next successful sync. Production mobile deployments must use HTTPS; plain HTTP is for isolated local development only.
+Residents can render the current short-lived QR through `GET /api/access/passes/:id/qr`. The API never returns the encrypted or decrypted TOTP seed. Offline resident generation remains deferred until a device-bound provisioning design with encryption, rotation, and revocation is approved. Guard validation remains authoritative and online.
 
 Maintenance creation accepts multipart fields `clientRequestId`, `description`, and one `image`. JPEG, PNG, and WebP files are limited to 5 MiB and stored under generated names. The client request ID is idempotent for deferred synchronization.
+
+## API contract and examples
+
+Swagger UI is served at `http://localhost:3000/api/docs`. Generate the versioned OpenAPI artifact with `npm run openapi:generate`, and verify that the checked-in artifact is current with `npm run openapi:check`.
+
+```bash
+curl -X POST http://localhost:3000/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"admin@example.com","password":"replace-with-development-password"}'
+
+curl 'http://localhost:3000/api/residents?page=1&pageSize=10' \
+  -H 'Authorization: Bearer replace-with-access-token'
+```
+
+Errors use the stable `{ code, message, details?, requestId }` contract. Never place real credentials or tokens in checked-in examples.

@@ -5,9 +5,14 @@ import { Resident } from './resident.entity';
 import { ResidentsController } from './residents.controller';
 import { ResidentsService } from './residents.service';
 import { UnitsModule } from '../units/units.module';
+import { User } from '../users/user.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Resident]),UnitsModule, AuthModule],
+  imports: [
+    TypeOrmModule.forFeature([Resident, User]),
+    UnitsModule,
+    AuthModule,
+  ],
   controllers: [ResidentsController],
   providers: [ResidentsService],
   exports: [ResidentsService],

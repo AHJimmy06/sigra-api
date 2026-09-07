@@ -16,8 +16,17 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Role } from '../common/role.enum';
 import { Roles } from '../common/roles.decorator';
 import { RolesGuard } from '../common/roles.guard';
-import { CreateUnitDto, UpdateUnitDto } from './unit.dto';
+import {
+  CreateUnitDto,
+  PaginatedUnitsResponseDto,
+  UnitResponseDto,
+  UpdateUnitDto,
+} from './unit.dto';
 import { UnitsService } from './units.service';
+import type { AuthUser } from '../auth/auth.types';
+import { CurrentUser } from '../common/current-user.decorator';
+import { ActivePaginationQueryDto } from '../common/pagination.dto';
+import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
 
 @Controller('units')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -26,34 +35,33 @@ export class UnitsController {
   constructor(private readonly unitsService: UnitsService) {}
 
   @Get()
-  list(
-    @Query('page') page?: string,
-    @Query('pageSize') pageSize?: string,
-    @Query('search') search?: string,
-    @Query('status') status?: string,
-  ) {
-    return this.unitsService.list({
-      page: page ? parseInt(page, 10) : 1,
-      pageSize: pageSize ? parseInt(pageSize, 10) : 10,
-      search,
-      status,
-    });
+  @ApiOkResponse({ type: PaginatedUnitsResponseDto })
+  list(@Query() query: ActivePaginationQueryDto) {
+    return this.unitsService.list(query);
   }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  create(@Body() dto: CreateUnitDto) {
-    return this.unitsService.create(dto);
+  @ApiCreatedResponse({ type: UnitResponseDto })
+  create(@CurrentUser() user: AuthUser, @Body() dto: CreateUnitDto) {
+    return this.unitsService.create(dto, user);
   }
 
   @Patch(':id')
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateUnitDto) {
-    return this.unitsService.update(id, dto);
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateUnitDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.unitsService.update(id, dto, user);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param('id', ParseUUIDPipe) id: string) {
-    return this.unitsService.remove(id);
+  remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.unitsService.remove(id, user);
   }
 }

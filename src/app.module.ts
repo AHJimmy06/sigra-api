@@ -13,6 +13,7 @@ import { ResidentsModule } from './residents/residents.module';
 import { SeedModule } from './seed/seed.module';
 import { TicketsModule } from './tickets/tickets.module';
 import { UnitsModule } from './units/units.module';
+import { AuditModule } from './audit/audit.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { UnitsModule } from './units/units.module';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => config.getOrThrow('database'),
     }),
+    AuditModule,
     AuthModule,
     UnitsModule,
     ResidentsModule,

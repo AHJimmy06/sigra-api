@@ -22,8 +22,14 @@ export class AccessEvent {
   @Column({ name: 'pass_id', type: 'uuid', nullable: true }) passId!:
     string | null;
   @Column({ name: 'guard_id', type: 'uuid' }) guardId!: string;
+  @Column({ name: 'resident_id', type: 'uuid', nullable: true }) residentId!:
+    string | null;
+  @Column({ name: 'unit_id', type: 'uuid', nullable: true }) unitId!:
+    string | null;
   @Column({ type: 'enum', enum: AccessDecision }) decision!: AccessDecision;
   @Column({ type: 'enum', enum: AccessDirection }) direction!: AccessDirection;
   @Column() reason!: string;
   @CreateDateColumn({ name: 'occurred_at' }) occurredAt!: Date;
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
+  createdAt!: Date;
 }

@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -56,6 +60,17 @@ export class TicketImageStorage {
       await fs.unlink(join(this.uploadRoot, imageName));
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+  }
+
+  async read(imageName: string) {
+    try {
+      return await fs.readFile(join(this.uploadRoot, imageName));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        throw new NotFoundException('Ticket image not found');
+      }
+      throw error;
     }
   }
 

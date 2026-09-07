@@ -16,8 +16,17 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Role } from '../common/role.enum';
 import { Roles } from '../common/roles.decorator';
 import { RolesGuard } from '../common/roles.guard';
-import { CreateResidentDto, UpdateResidentDto } from './resident.dto';
+import {
+  CreateResidentDto,
+  PaginatedResidentsResponseDto,
+  ResidentResponseDto,
+  UpdateResidentDto,
+} from './resident.dto';
 import { ResidentsService } from './residents.service';
+import type { AuthUser } from '../auth/auth.types';
+import { CurrentUser } from '../common/current-user.decorator';
+import { ResidentPaginationQueryDto } from '../common/pagination.dto';
+import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
 
 @Controller('residents')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -26,39 +35,33 @@ export class ResidentsController {
   constructor(private readonly residentsService: ResidentsService) {}
 
   @Get()
-  list(
-    @Query('page') page?: string,
-    @Query('pageSize') pageSize?: string,
-    @Query('search') search?: string,
-    @Query('status') status?: string,
-    @Query('unitId') unitId?: string,
-  ) {
-    return this.residentsService.list({
-      page: page ? parseInt(page, 10) : 1,
-      pageSize: pageSize ? parseInt(pageSize, 10) : 10,
-      search,
-      status,
-      unitId,
-    });
+  @ApiOkResponse({ type: PaginatedResidentsResponseDto })
+  list(@Query() query: ResidentPaginationQueryDto) {
+    return this.residentsService.list(query);
   }
 
   @Post()
   @HttpCode(HttpStatus.CREATED) // Código HTTP 201
-  create(@Body() dto: CreateResidentDto) {
-    return this.residentsService.create(dto);
+  @ApiCreatedResponse({ type: ResidentResponseDto })
+  create(@CurrentUser() user: AuthUser, @Body() dto: CreateResidentDto) {
+    return this.residentsService.create(dto, user);
   }
 
   @Patch(':id')
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateResidentDto,
+    @CurrentUser() user: AuthUser,
   ) {
-    return this.residentsService.update(id, dto);
+    return this.residentsService.update(id, dto, user);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT) // Código HTTP 204
-  remove(@Param('id', ParseUUIDPipe) id: string) {
-    return this.residentsService.remove(id);
+  remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.residentsService.remove(id, user);
   }
 }

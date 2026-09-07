@@ -7,6 +7,7 @@ export type HttpErrorCode =
   | 'FORBIDDEN'
   | 'NOT_FOUND'
   | 'CONFLICT'
+  | 'RATE_LIMITED'
   | 'INTERNAL_ERROR';
 
 export type HttpErrorBody = {
@@ -31,6 +32,12 @@ export const SAFE_PUBLIC_4XX_MESSAGES = new Set([
   'Ticket image not found',
   'Ticket not found',
   'Resident not found',
+  'Email is already registered',
+  'Unit code is already registered',
+  'Unit must exist and be active',
+  'Unit cannot be deactivated while active residents are linked to it',
+  'Invalid ticket status transition',
+  'Invalid image name',
 ]);
 
 export class ContractValidationException extends BadRequestException {

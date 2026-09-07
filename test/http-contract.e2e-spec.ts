@@ -144,5 +144,17 @@ describe('HTTP contract (e2e)', () => {
     ]).toEqual(['one', 'two']);
   });
 
+  it('normalizes rate-limit responses as the Phase 0 429 contract', async () => {
+    await request(app.getHttpServer()).get('/api/rate-limit').expect(200);
+    const limited = await request(app.getHttpServer())
+      .get('/api/rate-limit')
+      .expect(429);
+    expect(limited.body).toEqual({
+      code: 'RATE_LIMITED',
+      message: 'Too many requests',
+      requestId: limited.headers['x-request-id'],
+    });
+  });
+
   afterAll(() => app.close());
 });

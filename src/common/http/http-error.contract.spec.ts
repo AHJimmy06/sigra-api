@@ -96,12 +96,16 @@ describe('HTTP error contract', () => {
 function runMiddleware(header: string | string[]) {
   const request = {
     headers: { 'x-request-id': header },
+    method: 'GET',
+    path: '/contract',
   } as unknown as Parameters<typeof requestIdMiddleware>[0];
   let responseHeader = '';
   requestIdMiddleware(
     request,
     {
       setHeader: (_name: string, value: string) => (responseHeader = value),
+      once: jest.fn(),
+      statusCode: 200,
     } as unknown as Parameters<typeof requestIdMiddleware>[1],
     () => undefined,
   );

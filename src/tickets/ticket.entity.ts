@@ -11,6 +11,12 @@ export enum TicketStatus {
   IN_PROGRESS = 'IN_PROGRESS',
   RESOLVED = 'RESOLVED',
 }
+export enum TicketPriority {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  URGENT = 'URGENT',
+}
 @Entity('maintenance_tickets')
 export class MaintenanceTicket {
   @PrimaryGeneratedColumn('uuid') id!: string;
@@ -21,6 +27,13 @@ export class MaintenanceTicket {
   @Column({ name: 'image_name' }) imageName!: string;
   @Column({ type: 'enum', enum: TicketStatus, default: TicketStatus.OPEN })
   status!: TicketStatus;
+  @Column({
+    type: 'enum',
+    enum: TicketPriority,
+    enumName: 'ticket_priority',
+    default: TicketPriority.MEDIUM,
+  })
+  priority!: TicketPriority;
   @CreateDateColumn({ name: 'created_at' }) createdAt!: Date;
   @UpdateDateColumn({ name: 'updated_at' }) updatedAt!: Date;
 }

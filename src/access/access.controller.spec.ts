@@ -1,23 +1,33 @@
-import { ROLES_KEY } from '../common/roles.decorator';
-import { Role } from '../common/role.enum';
-import { AccessController } from './access.controller';
 import { Reflector } from '@nestjs/core';
+import { Role } from '../common/role.enum';
+import { ROLES_KEY } from '../common/roles.decorator';
+import { AccessController } from './access.controller';
 
-describe('AccessController provisioning boundary', () => {
-  it('is resident-only and scopes provisioning to the token resident id', async () => {
+describe('AccessController authorization boundary', () => {
+  const reflector = new Reflector();
+  const rolesFor = (method: keyof AccessController) => {
+    const handler: unknown = Object.getOwnPropertyDescriptor(
+      AccessController.prototype,
+      method,
+    )?.value;
+    if (typeof handler !== 'function') throw new Error('Handler not found');
+    return reflector.get<Role[]>(ROLES_KEY, handler);
+  };
+
+  it('keeps pass operations resident-only and validation guard-only', () => {
+    expect(rolesFor('list')).toEqual([Role.RESIDENT]);
+    expect(rolesFor('create')).toEqual([Role.RESIDENT]);
+    expect(rolesFor('qr')).toEqual([Role.RESIDENT]);
+    expect(rolesFor('validate')).toEqual([Role.GUARD]);
+  });
+
+  it('scopes QR rendering to the authenticated resident', async () => {
     const access = {
-      provision: jest.fn().mockResolvedValue({ passId: 'pass-1' }),
+      currentQr: jest.fn().mockResolvedValue({ payload: '{}' }),
     };
     const controller = new AccessController(access as never);
-    const roles = new Reflector().get<Role[]>(
-      ROLES_KEY,
-      // Decorator metadata is attached to the prototype method itself.
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      AccessController.prototype.provision,
-    );
 
-    expect(roles).toEqual([Role.RESIDENT]);
-    await controller.provision(
+    await controller.qr(
       {
         sub: 'user-1',
         email: 'resident@example.com',
@@ -26,6 +36,7 @@ describe('AccessController provisioning boundary', () => {
       },
       'pass-1',
     );
-    expect(access.provision.mock.calls).toEqual([['resident-1', 'pass-1']]);
+
+    expect(access.currentQr).toHaveBeenCalledWith('resident-1', 'pass-1');
   });
 });

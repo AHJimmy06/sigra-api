@@ -2,7 +2,8 @@ import {
   Body,
   Controller,
   Get,
-  Header,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseUUIDPipe,
   Post,
@@ -42,20 +43,10 @@ export class AccessController {
   ) {
     return this.access.currentQr(user.residentId!, id);
   }
-  @Get('passes/:id/provision')
-  @Roles(Role.RESIDENT)
-  @Header('Cache-Control', 'no-store')
-  @Header('Pragma', 'no-cache')
-  provision(
-    @CurrentUser() user: AuthUser,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
-    return this.access.provision(user.residentId!, id);
-  }
-  @Post('validate') @Roles(Role.GUARD) validate(
-    @CurrentUser() user: AuthUser,
-    @Body() dto: ValidateAccessDto,
-  ) {
+  @Post('validate')
+  @HttpCode(HttpStatus.OK)
+  @Roles(Role.GUARD)
+  validate(@CurrentUser() user: AuthUser, @Body() dto: ValidateAccessDto) {
     return this.access.validate(
       dto.qrPayload,
       dto.clientEventId,

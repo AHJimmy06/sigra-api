@@ -69,20 +69,6 @@ export class AccessService {
       contract: 'sigra.access.v1',
     };
   }
-  async provision(residentId: string, id: string) {
-    const pass = await this.passes.findOneBy({ id, residentId });
-    if (!pass || pass.revokedAt || pass.validUntil <= new Date())
-      throw new NotFoundException('Active pass not found');
-    return {
-      contract: 'sigra.access.v1' as const,
-      passId: pass.id,
-      secret: this.crypto.decrypt(pass.encryptedSecret),
-      algorithm: 'SHA1' as const,
-      digits: 6 as const,
-      period: 30 as const,
-      validUntil: pass.validUntil,
-    };
-  }
   async validate(
     qrPayload: string,
     clientEventId: string,
@@ -93,6 +79,8 @@ export class AccessService {
     if (existing) return existing;
     let payload: QrPayloadV1 | null = null;
     let persistedPassId: string | null = null;
+    let residentId: string | null = null;
+    let unitId: string | null = null;
     let decision = AccessDecision.DENIED;
     let reason = 'INVALID_QR';
     try {
@@ -103,6 +91,8 @@ export class AccessService {
       if (!pass) reason = 'PASS_NOT_FOUND';
       else {
         persistedPassId = pass.id;
+        residentId = pass.residentId;
+        unitId = pass.resident.unitId;
         if (pass.revokedAt) reason = 'PASS_REVOKED';
         else if (pass.validUntil <= new Date()) reason = 'PASS_EXPIRED';
         else if (!pass.resident.active || !pass.resident.unit.active)
@@ -132,6 +122,8 @@ export class AccessService {
           decision,
           reason,
           passId: persistedPassId,
+          residentId,
+          unitId,
         }),
       );
     } catch (error) {
