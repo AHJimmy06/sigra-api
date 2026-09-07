@@ -4,6 +4,54 @@ import { MaintenanceTicket } from './ticket.entity';
 import { TicketsService } from './tickets.service';
 
 describe('TicketsService', () => {
+  it('lists every ticket for an admin', async () => {
+    const repository = { find: jest.fn().mockResolvedValue([]) };
+    const service = new TicketsService(repository as never);
+
+    await service.list({
+      sub: 'admin-1',
+      email: 'admin@example.com',
+      role: Role.ADMIN,
+      residentId: null,
+    });
+
+    expect(repository.find).toHaveBeenCalledWith({
+      order: { createdAt: 'DESC' },
+    });
+  });
+
+  it('lists only tickets owned by the authenticated resident', async () => {
+    const repository = { find: jest.fn().mockResolvedValue([]) };
+    const service = new TicketsService(repository as never);
+
+    await service.list({
+      sub: 'resident-user-1',
+      email: 'resident@example.com',
+      role: Role.RESIDENT,
+      residentId: 'resident-1',
+    });
+
+    expect(repository.find).toHaveBeenCalledWith({
+      where: { residentId: 'resident-1' },
+      order: { createdAt: 'DESC' },
+    });
+  });
+
+  it('rejects ticket listing without an authorized resident identity', () => {
+    const repository = { find: jest.fn() };
+    const service = new TicketsService(repository as never);
+
+    expect(() =>
+      service.list({
+        sub: 'guard-1',
+        email: 'guard@example.com',
+        role: Role.GUARD,
+        residentId: null,
+      }),
+    ).toThrow(ForbiddenException);
+    expect(repository.find).not.toHaveBeenCalled();
+  });
+
   it('returns the resident-scoped existing ticket without inserting', async () => {
     const existing = { id: 'ticket-1' } as MaintenanceTicket;
     const repository = {

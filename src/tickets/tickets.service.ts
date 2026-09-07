@@ -15,8 +15,15 @@ export class TicketsService {
     @InjectRepository(MaintenanceTicket)
     private readonly tickets: Repository<MaintenanceTicket>,
   ) {}
-  list() {
-    return this.tickets.find({ order: { createdAt: 'DESC' } });
+  list(user: AuthUser) {
+    if (user.role === Role.ADMIN)
+      return this.tickets.find({ order: { createdAt: 'DESC' } });
+    if (user.role === Role.RESIDENT && user.residentId)
+      return this.tickets.find({
+        where: { residentId: user.residentId },
+        order: { createdAt: 'DESC' },
+      });
+    throw new ForbiddenException('Insufficient role');
   }
   findByClientRequestId(clientRequestId: string, residentId: string) {
     return this.tickets.findOneBy({ clientRequestId, residentId });

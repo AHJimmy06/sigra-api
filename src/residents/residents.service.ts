@@ -40,16 +40,17 @@ export class ResidentsService {
     });
   }
   async update(id: string, dto: UpdateResidentDto) {
-    const resident = await this.residents.findOneBy({ id });
-    if (!resident) throw new NotFoundException('Resident not found');
-    const saved = await this.residents.save(
-      this.residents.merge(resident, dto),
-    );
-    if (dto.active === false)
-      await this.dataSource
-        .getRepository(User)
-        .update({ residentId: id }, { active: false });
-    return saved;
+    return this.dataSource.transaction(async (manager) => {
+      const residents = manager.getRepository(Resident);
+      const resident = await residents.findOneBy({ id });
+      if (!resident) throw new NotFoundException('Resident not found');
+      const saved = await residents.save(residents.merge(resident, dto));
+      if (dto.active !== undefined)
+        await manager
+          .getRepository(User)
+          .update({ residentId: id }, { active: dto.active });
+      return saved;
+    });
   }
   async remove(id: string) {
     const resident = await this.residents.findOneBy({ id });

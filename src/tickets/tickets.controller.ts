@@ -32,8 +32,8 @@ export class TicketsController {
     private readonly tickets: TicketsService,
     private readonly images: TicketImageStorage,
   ) {}
-  @Get() @Roles(Role.ADMIN) list() {
-    return this.tickets.list();
+  @Get() @Roles(Role.ADMIN, Role.RESIDENT) list(@CurrentUser() user: AuthUser) {
+    return this.tickets.list(user);
   }
   @Post()
   @Roles(Role.RESIDENT)
