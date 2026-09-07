@@ -3,10 +3,13 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -22,25 +25,44 @@ import { AnnouncementsService } from './announcements.service';
 @Controller('announcements')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AnnouncementsController {
-  constructor(private readonly announcements: AnnouncementsService) {}
-  @Get() @Roles(Role.ADMIN) adminList() {
-    return this.announcements.adminList();
+  constructor(private readonly announcementsService: AnnouncementsService) {}
+
+  @Get()
+  @Roles(Role.ADMIN, Role.RESIDENT) // Tanto Admin como Residentes pueden ver comunicados
+  list(
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.announcementsService.list({
+      page: page ? parseInt(page, 10) : 1,
+      pageSize: pageSize ? parseInt(pageSize, 10) : 10,
+      search,
+      status,
+    });
   }
-  @Get('published') @Roles(Role.RESIDENT) published() {
-    return this.announcements.published();
+
+  @Post()
+  @Roles(Role.ADMIN)
+  @HttpCode(HttpStatus.CREATED)
+  create(@Body() dto: CreateAnnouncementDto) {
+    return this.announcementsService.create(dto);
   }
-  @Post() @Roles(Role.ADMIN) create(@Body() dto: CreateAnnouncementDto) {
-    return this.announcements.create(dto);
-  }
-  @Patch(':id') @Roles(Role.ADMIN) update(
+
+  @Patch(':id')
+  @Roles(Role.ADMIN)
+  update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateAnnouncementDto,
   ) {
-    return this.announcements.update(id, dto);
+    return this.announcementsService.update(id, dto);
   }
-  @Delete(':id') @Roles(Role.ADMIN) remove(
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
-    return this.announcements.remove(id);
+
+  @Delete(':id')
+  @Roles(Role.ADMIN)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  remove(@Param('id', ParseUUIDPipe) id: string) {
+    return this.announcementsService.remove(id);
   }
 }

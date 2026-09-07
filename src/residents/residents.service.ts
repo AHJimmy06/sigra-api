@@ -1,64 +1,134 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { hash } from 'bcryptjs';
-import { DataSource, Repository } from 'typeorm';
-import { Role } from '../common/role.enum';
+import { Repository, DataSource } from 'typeorm';
+import { Resident } from './resident.entity';
+import { ResidentialUnit } from '../units/unit.entity';
 import { User } from '../users/user.entity';
 import { CreateResidentDto, UpdateResidentDto } from './resident.dto';
-import { Resident } from './resident.entity';
 
 @Injectable()
 export class ResidentsService {
   constructor(
     @InjectRepository(Resident)
-    private readonly residents: Repository<Resident>,
+    private readonly residentRepository: Repository<Resident>,
+    @InjectRepository(ResidentialUnit)
+    private readonly unitRepository: Repository<ResidentialUnit>,
     private readonly dataSource: DataSource,
   ) {}
-  list() {
-    return this.residents.find({ order: { name: 'ASC' } });
+
+  // Listado paginado y filtrado según los estándares de la Fase 0
+  async list(params: {
+    page: number;
+    pageSize: number;
+    search?: string;
+    status?: string;
+    unitId?: string;
+  }) {
+    const { page, pageSize, search, status, unitId } = params;
+
+    const query = this.residentRepository.createQueryBuilder('resident');
+
+    // Filtro por texto de búsqueda (nombre o correo)
+    if (search) {
+      query.andWhere(
+        '(resident.name ILIKE :search OR resident.email ILIKE :search)',
+        { search: `%${search}%` },
+      );
+    }
+
+    // Filtro por estado activo/inactivo
+    if (status !== undefined) {
+      query.andWhere('resident.active = :status', {
+        status: status === 'true',
+      });
+    }
+
+    // Filtro por unidad habitacional
+    if (unitId) {
+      query.andWhere('resident.unitId = :unitId', { unitId });
+    }
+
+    // Paginación y ordenamiento estable obligatorio
+    query.skip((page - 1) * pageSize).take(pageSize);
+    query.orderBy('resident.createdAt', 'DESC');
+
+    const [items, total] = await query.getManyAndCount();
+
+    return {
+      items,
+      total,
+      page,
+      pageSize,
+    };
   }
-  create(dto: CreateResidentDto) {
-    return this.dataSource.transaction(async (manager) => {
-      const resident = await manager.save(
-        Resident,
-        manager.create(Resident, {
-          name: dto.name,
-          phone: dto.phone ?? null,
-          unitId: dto.unitId,
-        }),
-      );
-      await manager.save(
-        User,
-        manager.create(User, {
-          email: dto.email.toLowerCase(),
-          passwordHash: await hash(dto.password, 12),
-          role: Role.RESIDENT,
-          residentId: resident.id,
-        }),
-      );
-      return resident;
+  async create(dto: CreateResidentDto) {
+    // 1. Validar que la unidad exista antes de guardar (evita el error 500 de llave foránea)
+    const unitExists = await this.unitRepository.findOne({
+      where: { id: dto.unitId },
     });
+    if (!unitExists) {
+      throw new ConflictException({
+        code: 'VALIDATION_ERROR',
+        message: 'La unidad especificada no existe o no es válida.',
+        details: { unitId: ['El ID de la unidad no se encuentra registrado.'] },
+      });
+    }
+
+    // 2. Crear y guardar el residente de forma segura
+    const resident = this.residentRepository.create(dto);
+    return await this.residentRepository.save(resident);
   }
+
   async update(id: string, dto: UpdateResidentDto) {
+    // Validar si viene un unitId y si existe antes de hacer la transacción
+    if (dto.unitId) {
+      const unitExists = await this.unitRepository.findOne({
+        where: { id: dto.unitId },
+      });
+      if (!unitExists) {
+        throw new ConflictException({
+          code: 'VALIDATION_ERROR',
+          message: 'La unidad especificada no existe o no es válida.',
+          details: {
+            unitId: ['El ID de la unidad no se encuentra registrado.'],
+          },
+        });
+      }
+    }
+
     return this.dataSource.transaction(async (manager) => {
-      const residents = manager.getRepository(Resident);
-      const resident = await residents.findOneBy({ id });
-      if (!resident) throw new NotFoundException('Resident not found');
-      const saved = await residents.save(residents.merge(resident, dto));
-      if (dto.active !== undefined)
+      const residentsRepo = manager.getRepository(Resident);
+      const resident = await residentsRepo.findOne({ where: { id } });
+
+      if (!resident) {
+        throw new NotFoundException('Resident not found.');
+      }
+
+      const saved = await residentsRepo.save(
+        residentsRepo.merge(resident, dto),
+      );
+
+      if (dto.active !== undefined) {
         await manager
           .getRepository(User)
           .update({ residentId: id }, { active: dto.active });
+      }
+
       return saved;
     });
   }
+
   async remove(id: string) {
-    const resident = await this.residents.findOneBy({ id });
-    if (!resident) throw new NotFoundException('Resident not found');
+    const resident = await this.residentRepository.findOne({ where: { id } });
+    if (!resident) {
+      throw new NotFoundException('Resident not found.');
+    }
     resident.active = false;
-    await this.residents.save(resident);
-    await this.dataSource
-      .getRepository(User)
-      .update({ residentId: id }, { active: false });
+    await this.residentRepository.save(resident);
+    return;
   }
 }

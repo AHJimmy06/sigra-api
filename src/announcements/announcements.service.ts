@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Not, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Announcement } from './announcement.entity';
 import {
   CreateAnnouncementDto,
@@ -11,39 +11,70 @@ import {
 export class AnnouncementsService {
   constructor(
     @InjectRepository(Announcement)
-    private readonly announcements: Repository<Announcement>,
+    private readonly announcementRepository: Repository<Announcement>,
   ) {}
-  adminList() {
-    return this.announcements.find({ order: { createdAt: 'DESC' } });
+
+  async list(params: {
+    page: number;
+    pageSize: number;
+    search?: string;
+    status?: string;
+  }) {
+    const { page, pageSize, search, status } = params;
+    const query =
+      this.announcementRepository.createQueryBuilder('announcement');
+
+    if (search) {
+      query.andWhere(
+        '(announcement.title ILIKE :search OR announcement.body ILIKE :search)',
+        {
+          search: `%${search}%`,
+        },
+      );
+    }
+
+    if (status !== undefined) {
+      query.andWhere('announcement.published = :status', {
+        status: status === 'true',
+      });
+    }
+
+    query.skip((page - 1) * pageSize).take(pageSize);
+    query.orderBy('announcement.createdAt', 'DESC');
+
+    const [items, total] = await query.getManyAndCount();
+
+    return {
+      items,
+      total,
+      page,
+      pageSize,
+    };
   }
-  published() {
-    return this.announcements.find({
-      where: { publishedAt: Not(IsNull()) },
-      order: { publishedAt: 'DESC' },
-    });
+
+  async create(dto: CreateAnnouncementDto) {
+    const announcement = this.announcementRepository.create(dto);
+    return await this.announcementRepository.save(announcement);
   }
-  create(dto: CreateAnnouncementDto) {
-    return this.announcements.save(
-      this.announcements.create({
-        title: dto.title,
-        body: dto.body,
-        publishedAt: dto.published ? new Date() : null,
-      }),
-    );
-  }
+
   async update(id: string, dto: UpdateAnnouncementDto) {
-    const item = await this.announcements.findOneBy({ id });
-    if (!item) throw new NotFoundException('Announcement not found');
-    if (dto.title !== undefined) item.title = dto.title;
-    if (dto.body !== undefined) item.body = dto.body;
-    if (dto.published !== undefined)
-      item.publishedAt = dto.published
-        ? (item.publishedAt ?? new Date())
-        : null;
-    return this.announcements.save(item);
+    const announcement = await this.announcementRepository.findOne({
+      where: { id },
+    });
+    if (!announcement) {
+      throw new NotFoundException('Announcement not found.');
+    }
+    Object.assign(announcement, dto);
+    return await this.announcementRepository.save(announcement);
   }
+
   async remove(id: string) {
-    const result = await this.announcements.delete(id);
-    if (!result.affected) throw new NotFoundException('Announcement not found');
+    const announcement = await this.announcementRepository.findOne({
+      where: { id },
+    });
+    if (!announcement) {
+      throw new NotFoundException('Announcement not found.');
+    }
+    await this.announcementRepository.remove(announcement);
   }
 }
