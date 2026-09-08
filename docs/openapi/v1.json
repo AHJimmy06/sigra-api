@@ -1,13 +1,192 @@
 {
   "openapi": "3.0.0",
   "paths": {
+    "/api/access/events": {
+      "get": {
+        "operationId": "AccessController_listEvents",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10,
+              "type": "number"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "Inclusive ISO 8601 lower bound.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "Inclusive ISO 8601 upper bound. A date-only value includes the full calendar day in the configured RESIDENTIAL_TIME_ZONE.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "decision",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ALLOWED",
+                "DENIED"
+              ]
+            }
+          },
+          {
+            "name": "direction",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ENTRY",
+                "EXIT"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedAccessEventsResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Phase 0 error (400)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Phase 0 error (401)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Phase 0 error (403)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Phase 0 error (404)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Phase 0 error (409)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Phase 0 error (429)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Phase 0 error (500)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Access"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/access/passes": {
       "get": {
         "operationId": "AccessController_list",
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AccessPassResponseDto"
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Phase 0 error (400)",
@@ -104,7 +283,14 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessPassResponseDto"
+                }
+              }
+            }
           },
           "400": {
             "description": "Phase 0 error (400)",
@@ -300,7 +486,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentQrResponseDto"
+                }
+              }
+            }
           },
           "400": {
             "description": "Phase 0 error (400)",
@@ -403,7 +596,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AccessEvent"
+                  "$ref": "#/components/schemas/ValidateAccessResponseDto"
                 }
               }
             }
@@ -507,6 +700,15 @@
             }
           },
           {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 160,
+              "type": "string"
+            }
+          },
+          {
             "name": "page",
             "required": true,
             "in": "query",
@@ -533,15 +735,6 @@
                   "$ref": "#/components/schemas/Object"
                 }
               ]
-            }
-          },
-          {
-            "name": "search",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "maxLength": 160,
-              "type": "string"
             }
           }
         ],
@@ -766,14 +959,7 @@
         },
         "responses": {
           "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Announcement"
-                }
-              }
-            }
+            "description": ""
           },
           "400": {
             "description": "Phase 0 error (400)",
@@ -869,14 +1055,7 @@
         ],
         "responses": {
           "204": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Announcement"
-                }
-              }
-            }
+            "description": ""
           },
           "400": {
             "description": "Phase 0 error (400)",
@@ -1238,7 +1417,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/LoginUserDto"
                 }
               }
             }
@@ -1330,7 +1509,14 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardMetricsResponseDto"
+                }
+              }
+            }
           },
           "400": {
             "description": "Phase 0 error (400)",
@@ -1439,6 +1625,15 @@
             }
           },
           {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 160,
+              "type": "string"
+            }
+          },
+          {
             "name": "page",
             "required": true,
             "in": "query",
@@ -1465,15 +1660,6 @@
                   "$ref": "#/components/schemas/Object"
                 }
               ]
-            }
-          },
-          {
-            "name": "search",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "maxLength": 160,
-              "type": "string"
             }
           }
         ],
@@ -1702,7 +1888,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Resident"
+                  "$ref": "#/components/schemas/ResidentUpdateResponseDto"
                 }
               }
             }
@@ -1916,6 +2102,15 @@
             }
           },
           {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 160,
+              "type": "string"
+            }
+          },
+          {
             "name": "page",
             "required": true,
             "in": "query",
@@ -1942,15 +2137,6 @@
                   "$ref": "#/components/schemas/Object"
                 }
               ]
-            }
-          },
-          {
-            "name": "search",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "maxLength": 160,
-              "type": "string"
             }
           }
         ],
@@ -2485,6 +2671,15 @@
             }
           },
           {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 160,
+              "type": "string"
+            }
+          },
+          {
             "name": "page",
             "required": true,
             "in": "query",
@@ -2511,15 +2706,6 @@
                   "$ref": "#/components/schemas/Object"
                 }
               ]
-            }
-          },
-          {
-            "name": "search",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "maxLength": 160,
-              "type": "string"
             }
           }
         ],
@@ -2748,7 +2934,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ResidentialUnit"
+                  "$ref": "#/components/schemas/UnitResponseDto"
                 }
               }
             }
@@ -2952,6 +3138,148 @@
       }
     },
     "schemas": {
+      "AccessEventResidentResponseDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "unitCode": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "name",
+          "unitCode"
+        ]
+      },
+      "AccessEventGuardResponseDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "AccessEventResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "decision": {
+            "enum": [
+              "ALLOWED",
+              "DENIED"
+            ],
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "direction": {
+            "enum": [
+              "ENTRY",
+              "EXIT"
+            ],
+            "type": "string"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "requestId": {
+            "type": "string",
+            "nullable": true
+          },
+          "resident": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AccessEventResidentResponseDto"
+              }
+            ]
+          },
+          "guard": {
+            "$ref": "#/components/schemas/AccessEventGuardResponseDto"
+          }
+        },
+        "required": [
+          "id",
+          "decision",
+          "reason",
+          "direction",
+          "occurredAt",
+          "requestId",
+          "resident",
+          "guard"
+        ]
+      },
+      "PaginatedAccessEventsResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AccessEventResponseDto"
+            }
+          },
+          "total": {
+            "type": "number"
+          },
+          "page": {
+            "type": "number"
+          },
+          "pageSize": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pageSize"
+        ]
+      },
+      "AccessPassResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "residentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "validUntil": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "revokedAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "residentId",
+          "validUntil",
+          "revokedAt",
+          "createdAt"
+        ]
+      },
       "CreatePassDto": {
         "type": "object",
         "properties": {
@@ -2963,6 +3291,28 @@
         },
         "required": [
           "validDays"
+        ]
+      },
+      "CurrentQrResponseDto": {
+        "type": "object",
+        "properties": {
+          "payload": {
+            "type": "string",
+            "description": "Opaque, short-lived payload to render as a QR code. Its internal verification material is not documented or exposed separately."
+          },
+          "expiresInSeconds": {
+            "type": "number",
+            "example": 30
+          },
+          "contract": {
+            "type": "string",
+            "example": "sigra.access.v1"
+          }
+        },
+        "required": [
+          "payload",
+          "expiresInSeconds",
+          "contract"
         ]
       },
       "ValidateAccessDto": {
@@ -2989,73 +3339,71 @@
           "direction"
         ]
       },
-      "AccessEvent": {
+      "ValidateAccessResponseDto": {
         "type": "object",
         "properties": {
           "id": {
-            "type": "string"
-          },
-          "clientEventId": {
-            "type": "string"
-          },
-          "passId": {
             "type": "string",
-            "nullable": true
-          },
-          "guardId": {
-            "type": "string"
-          },
-          "residentId": {
-            "type": "string",
-            "nullable": true
-          },
-          "unitId": {
-            "type": "string",
-            "nullable": true
+            "format": "uuid"
           },
           "decision": {
-            "type": "string",
             "enum": [
               "ALLOWED",
               "DENIED"
-            ]
-          },
-          "direction": {
-            "type": "string",
-            "enum": [
-              "ENTRY",
-              "EXIT"
-            ]
+            ],
+            "type": "string"
           },
           "reason": {
             "type": "string"
           },
-          "occurredAt": {
-            "format": "date-time",
+          "direction": {
+            "enum": [
+              "ENTRY",
+              "EXIT"
+            ],
             "type": "string"
           },
-          "createdAt": {
-            "format": "date-time",
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "requestId": {
             "type": "string"
           }
         },
         "required": [
           "id",
-          "clientEventId",
-          "passId",
-          "guardId",
-          "residentId",
-          "unitId",
           "decision",
-          "direction",
           "reason",
+          "direction",
           "occurredAt",
-          "createdAt"
+          "requestId"
         ]
       },
       "Object": {
         "type": "object",
         "properties": {}
+      },
+      "AnnouncementAuthorResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "email"
+        ]
       },
       "AnnouncementResponseDto": {
         "type": "object",
@@ -3088,6 +3436,15 @@
             "nullable": true,
             "format": "uuid"
           },
+          "author": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AnnouncementAuthorResponseDto"
+              }
+            ]
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -3104,6 +3461,7 @@
           "status",
           "publishedAt",
           "authorUserId",
+          "author",
           "createdAt",
           "updatedAt"
         ]
@@ -3174,55 +3532,6 @@
           }
         }
       },
-      "Announcement": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "title": {
-            "type": "string"
-          },
-          "body": {
-            "type": "string"
-          },
-          "publishedAt": {
-            "format": "date-time",
-            "type": "string",
-            "nullable": true
-          },
-          "status": {
-            "enum": [
-              "DRAFT",
-              "PUBLISHED",
-              "ARCHIVED"
-            ],
-            "type": "string"
-          },
-          "authorUserId": {
-            "type": "string",
-            "nullable": true
-          },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "updatedAt": {
-            "format": "date-time",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "title",
-          "body",
-          "publishedAt",
-          "status",
-          "authorUserId",
-          "createdAt",
-          "updatedAt"
-        ]
-      },
       "LoginDto": {
         "type": "object",
         "properties": {
@@ -3244,22 +3553,25 @@
         "type": "object",
         "properties": {
           "sub": {
-            "type": "string"
+            "type": "string",
+            "format": "uuid"
           },
           "email": {
-            "type": "string"
+            "type": "string",
+            "format": "email"
           },
           "role": {
-            "type": "string",
             "enum": [
               "ADMIN",
               "GUARD",
               "RESIDENT"
-            ]
+            ],
+            "type": "string"
           },
           "residentId": {
             "type": "string",
-            "nullable": true
+            "nullable": true,
+            "format": "uuid"
           }
         },
         "required": [
@@ -3276,7 +3588,8 @@
             "type": "string"
           },
           "expiresAt": {
-            "type": "string"
+            "type": "string",
+            "format": "date-time"
           },
           "user": {
             "$ref": "#/components/schemas/LoginUserDto"
@@ -3286,6 +3599,59 @@
           "accessToken",
           "expiresAt",
           "user"
+        ]
+      },
+      "AccessMetricDto": {
+        "type": "object",
+        "properties": {
+          "allowed": {
+            "type": "number"
+          },
+          "denied": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "allowed",
+          "denied"
+        ]
+      },
+      "FlowMetricDto": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "total": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "date",
+          "total"
+        ]
+      },
+      "DashboardMetricsResponseDto": {
+        "type": "object",
+        "properties": {
+          "today": {
+            "$ref": "#/components/schemas/AccessMetricDto"
+          },
+          "openIncidents": {
+            "type": "number"
+          },
+          "flow": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FlowMetricDto"
+            }
+          }
+        },
+        "required": [
+          "today",
+          "openIncidents",
+          "flow"
         ]
       },
       "ResidentUnitResponseDto": {
@@ -3336,6 +3702,10 @@
           "name": {
             "type": "string"
           },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
           "phone": {
             "type": "string",
             "nullable": true
@@ -3362,6 +3732,7 @@
         "required": [
           "id",
           "name",
+          "email",
           "phone",
           "active",
           "unitId",
@@ -3406,7 +3777,9 @@
           },
           "phone": {
             "type": "string",
-            "maxLength": 40
+            "minLength": 7,
+            "maxLength": 40,
+            "pattern": "^(?=(?:\\D*\\d){7,})\\+?[0-9\\s().-]+(?:\\s?(?:ext\\.?|x)\\s?\\d+)?$"
           },
           "unitId": {
             "type": "string",
@@ -3439,7 +3812,9 @@
           },
           "phone": {
             "type": "string",
-            "maxLength": 40
+            "minLength": 7,
+            "maxLength": 40,
+            "pattern": "^(?=(?:\\D*\\d){7,})\\+?[0-9\\s().-]+(?:\\s?(?:ext\\.?|x)\\s?\\d+)?$"
           },
           "unitId": {
             "type": "string",
@@ -3450,48 +3825,12 @@
           }
         }
       },
-      "ResidentialUnit": {
+      "ResidentUpdateResponseDto": {
         "type": "object",
         "properties": {
           "id": {
-            "type": "string"
-          },
-          "code": {
-            "type": "string"
-          },
-          "address": {
-            "type": "string"
-          },
-          "parkingSpaces": {
-            "type": "number"
-          },
-          "active": {
-            "type": "boolean"
-          },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "updatedAt": {
-            "format": "date-time",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "code",
-          "address",
-          "parkingSpaces",
-          "active",
-          "createdAt",
-          "updatedAt"
-        ]
-      },
-      "Resident": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
+            "type": "string",
+            "format": "uuid"
           },
           "name": {
             "type": "string"
@@ -3504,18 +3843,19 @@
             "type": "boolean"
           },
           "unitId": {
-            "type": "string"
+            "type": "string",
+            "format": "uuid"
           },
           "unit": {
-            "$ref": "#/components/schemas/ResidentialUnit"
+            "$ref": "#/components/schemas/ResidentUnitResponseDto"
           },
           "createdAt": {
-            "format": "date-time",
-            "type": "string"
+            "type": "string",
+            "format": "date-time"
           },
           "updatedAt": {
-            "format": "date-time",
-            "type": "string"
+            "type": "string",
+            "format": "date-time"
           }
         },
         "required": [
@@ -3821,6 +4161,7 @@
         "required": [
           "code",
           "message",
+          "details",
           "requestId"
         ],
         "properties": {

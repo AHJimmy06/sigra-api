@@ -45,6 +45,7 @@ describe('Ticket image route (e2e)', () => {
     expect(response.body).toEqual({
       code: 'NOT_FOUND',
       message: 'Ticket image not found',
+      details: {},
       requestId: response.headers['x-request-id'],
     });
   });

@@ -1,6 +1,8 @@
 import type { ColumnMetadata } from 'typeorm/metadata/ColumnMetadata';
 import dataSource from './typeorm.datasource';
 import { AddAuditLogs1724600001000 } from '../migrations/1724600001000-AddAuditLogs';
+import { HardenAccessEvents1724600002000 } from '../migrations/1724600002000-HardenAccessEvents';
+import { EnforceUnitParkingLimit1724600003000 } from '../migrations/1724600003000-EnforceUnitParkingLimit';
 
 type MetadataBuildableDataSource = typeof dataSource & {
   buildMetadatas(): Promise<void>;
@@ -160,5 +162,74 @@ describe('PostgreSQL entity metadata', () => {
       type: 'timestamptz',
       nullable: false,
     });
+    expect(
+      columnShape(
+        accessEvent.findColumnWithPropertyName('requestFingerprint')!,
+      ),
+    ).toMatchObject({
+      name: 'request_fingerprint',
+      type: 'varchar',
+      nullable: true,
+    });
+    expect(
+      columnShape(accessEvent.findColumnWithPropertyName('requestId')!),
+    ).toMatchObject({
+      name: 'request_id',
+      type: 'varchar',
+      nullable: true,
+    });
+    expect(accessEvent.indices.map((index) => index.name)).toContain(
+      'idx_access_events_filters',
+    );
+  });
+
+  it('adds reversible access traceability and filter indexes', async () => {
+    const upQueries: string[] = [];
+    const downQueries: string[] = [];
+    const migration = new HardenAccessEvents1724600002000();
+    await migration.up({
+      query: (sql: string) => {
+        upQueries.push(sql);
+        return Promise.resolve();
+      },
+    } as never);
+    await migration.down({
+      query: (sql: string) => {
+        downQueries.push(sql);
+        return Promise.resolve();
+      },
+    } as never);
+
+    expect(upQueries.join('\n')).toContain('"request_fingerprint" varchar(64)');
+    expect(upQueries.join('\n')).toContain('"request_id" varchar(128)');
+    expect(upQueries.join('\n')).toContain('"idx_access_events_filters"');
+    expect(downQueries.join('\n')).toContain(
+      'DROP COLUMN IF EXISTS "request_id"',
+    );
+  });
+
+  it('enforces the documented parking-space maximum in PostgreSQL', async () => {
+    const upQueries: string[] = [];
+    const downQueries: string[] = [];
+    const migration = new EnforceUnitParkingLimit1724600003000();
+    await migration.up({
+      query: (sql: string) => {
+        upQueries.push(sql);
+        return Promise.resolve();
+      },
+    } as never);
+    await migration.down({
+      query: (sql: string) => {
+        downQueries.push(sql);
+        return Promise.resolve();
+      },
+    } as never);
+
+    expect(upQueries).toEqual([
+      expect.stringContaining('CHECK ("parking_spaces" <= 1000)'),
+    ]);
+    expect(downQueries).toEqual([
+      expect.stringContaining('DROP CONSTRAINT IF EXISTS'),
+    ]);
   });
 });

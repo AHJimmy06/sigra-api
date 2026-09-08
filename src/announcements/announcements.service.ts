@@ -4,6 +4,7 @@ import { DataSource, Repository } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
 import { AuthUser } from '../auth/auth.types';
 import { Role } from '../common/role.enum';
+import { User } from '../users/user.entity';
 import {
   CreateAnnouncementDto,
   UpdateAnnouncementDto,
@@ -29,8 +30,10 @@ export class AnnouncementsService {
     actor: AuthUser,
   ) {
     const { page, pageSize, search, status } = params;
-    const query =
-      this.announcementRepository.createQueryBuilder('announcement');
+    const query = this.announcementRepository
+      .createQueryBuilder('announcement')
+      .leftJoin(User, 'author', 'author.id = announcement.authorUserId')
+      .addSelect('author.email', 'author_email');
     if (search) {
       query.andWhere(
         '(announcement.title ILIKE :search OR announcement.body ILIKE :search)',
@@ -44,12 +47,20 @@ export class AnnouncementsService {
     } else if (status !== undefined) {
       query.andWhere('announcement.status = :status', { status });
     }
-    query
+    const total = await query.getCount();
+    const result = await query
       .orderBy('announcement.createdAt', 'DESC')
       .addOrderBy('announcement.id', 'DESC')
       .skip((page - 1) * pageSize)
-      .take(pageSize);
-    const [items, total] = await query.getManyAndCount();
+      .take(pageSize)
+      .getRawAndEntities();
+    const items = result.entities.map((announcement, index) => {
+      const raw = result.raw[index] as Record<string, unknown> | undefined;
+      return this.toResponse(
+        announcement,
+        typeof raw?.author_email === 'string' ? raw.author_email : null,
+      );
+    });
     return { items, total, page, pageSize };
   }
 
@@ -75,7 +86,7 @@ export class AnnouncementsService {
         resourceType: 'ANNOUNCEMENT',
         resourceId: announcement.id,
       });
-      return announcement;
+      return this.toResponse(announcement, actor.email);
     });
   }
 
@@ -108,7 +119,7 @@ export class AnnouncementsService {
         resourceType: 'ANNOUNCEMENT',
         resourceId: id,
       });
-      return saved;
+      return this.toResponse(saved, actor.email);
     });
   }
 
@@ -127,7 +138,21 @@ export class AnnouncementsService {
         resourceId: id,
         metadata: { status: { from: previousStatus, to: saved.status } },
       });
-      return saved;
+      return this.toResponse(saved, actor.email);
     });
+  }
+
+  private toResponse(announcement: Announcement, authorEmail: string | null) {
+    return {
+      ...announcement,
+      author:
+        announcement.authorUserId && authorEmail
+          ? {
+              id: announcement.authorUserId,
+              name: authorEmail,
+              email: authorEmail,
+            }
+          : null,
+    };
   }
 }

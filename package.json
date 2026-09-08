@@ -21,6 +21,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "migration:run": "typeorm-ts-node-commonjs -d src/config/typeorm.datasource.ts migration:run",
     "migration:revert": "typeorm-ts-node-commonjs -d src/config/typeorm.datasource.ts migration:revert",
+    "db:dev:up": "docker compose -p sigra-phase0-local -f compose.dev.yml up -d --wait postgres",
+    "db:dev:down": "docker compose -p sigra-phase0-local -f compose.dev.yml down",
     "openapi:generate": "npm run build && node dist/openapi/generate-openapi.js",
     "openapi:check": "npm run build && node dist/openapi/check-openapi.js"
   },

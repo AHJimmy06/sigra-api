@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "127.0.0.1:${SIGRA_POSTGRES_PORT:-55439}:5432"
+    environment:
+      POSTGRES_DB: ${DATABASE_NAME:-sigra_phase0_dev}
+      POSTGRES_USER: ${DATABASE_USER:-sigra_phase0_dev}
+      POSTGRES_PASSWORD: ${SIGRA_POSTGRES_PASSWORD:?Set SIGRA_POSTGRES_PASSWORD in .env}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - sigra_phase0_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  sigra_phase0_postgres_data:

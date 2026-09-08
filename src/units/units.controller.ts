@@ -48,6 +48,7 @@ export class UnitsController {
   }
 
   @Patch(':id')
+  @ApiOkResponse({ type: UnitResponseDto })
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateUnitDto,

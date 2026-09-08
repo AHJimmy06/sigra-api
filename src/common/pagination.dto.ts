@@ -10,7 +10,7 @@ import {
   Min,
 } from 'class-validator';
 
-export class PaginationQueryDto {
+export class PageQueryDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
@@ -23,7 +23,9 @@ export class PaginationQueryDto {
   @Min(1)
   @Max(100)
   pageSize = 10;
+}
 
+export class PaginationQueryDto extends PageQueryDto {
   @IsOptional()
   @IsString()
   @MaxLength(160)

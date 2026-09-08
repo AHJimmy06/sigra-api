@@ -14,8 +14,9 @@ import type { AuthUser } from './auth.types';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { LoginDto } from './login.dto';
-import { LoginResponseDto } from './login-response.dto';
+import { LoginResponseDto, LoginUserDto } from './login-response.dto';
 import { ThrottlerGuard } from '@nestjs/throttler';
+import { ApiOkResponse } from '@nestjs/swagger';
 
 @Controller('auth')
 export class AuthController {
@@ -23,13 +24,17 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @UseGuards(ThrottlerGuard)
+  @ApiOkResponse({ type: LoginResponseDto })
   login(
     @Body() dto: LoginDto,
     @Req() request: Request,
   ): Promise<LoginResponseDto> {
     return this.auth.login(dto, request.ip);
   }
-  @Get('me') @UseGuards(JwtAuthGuard) me(@CurrentUser() user: AuthUser) {
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiOkResponse({ type: LoginUserDto })
+  me(@CurrentUser() user: AuthUser) {
     return user;
   }
 }

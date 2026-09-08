@@ -15,10 +15,21 @@ describe('AccessController authorization boundary', () => {
   };
 
   it('keeps pass operations resident-only and validation guard-only', () => {
+    expect(rolesFor('listEvents')).toEqual([Role.ADMIN]);
     expect(rolesFor('list')).toEqual([Role.RESIDENT]);
     expect(rolesFor('create')).toEqual([Role.RESIDENT]);
     expect(rolesFor('qr')).toEqual([Role.RESIDENT]);
     expect(rolesFor('validate')).toEqual([Role.GUARD]);
+  });
+
+  it('forwards validated history queries to the access service', async () => {
+    const access = { listEvents: jest.fn().mockResolvedValue({ items: [] }) };
+    const controller = new AccessController(access as never);
+    const query = { page: 2, pageSize: 25 };
+
+    await controller.listEvents(query);
+
+    expect(access.listEvents).toHaveBeenCalledWith(query);
   });
 
   it('scopes QR rendering to the authenticated resident', async () => {

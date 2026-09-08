@@ -86,12 +86,15 @@ describe('AnnouncementsService', () => {
 
   it('forces resident lists to published state and keeps admin filtering', async () => {
     const createQuery = () => ({
+      leftJoin: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
       addOrderBy: jest.fn().mockReturnThis(),
       skip: jest.fn().mockReturnThis(),
       take: jest.fn().mockReturnThis(),
-      getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      getCount: jest.fn().mockResolvedValue(0),
+      getRawAndEntities: jest.fn().mockResolvedValue({ raw: [], entities: [] }),
     });
     const residentQuery = createQuery();
     const adminQuery = createQuery();
@@ -124,5 +127,42 @@ describe('AnnouncementsService', () => {
       'announcement.status = :status',
       { status: AnnouncementStatus.ARCHIVED },
     );
+  });
+
+  it('returns the observable author shape without exposing the user entity', async () => {
+    const announcement = {
+      id: 'announcement-1',
+      authorUserId: 'admin-1',
+    } as Announcement;
+    const query = {
+      leftJoin: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getCount: jest.fn().mockResolvedValue(1),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getRawAndEntities: jest.fn().mockResolvedValue({
+        entities: [announcement],
+        raw: [{ author_email: 'admin@example.com', password_hash: 'secret' }],
+      }),
+    };
+    const service = new AnnouncementsService(
+      { createQueryBuilder: jest.fn().mockReturnValue(query) } as never,
+      {} as never,
+      {} as never,
+    );
+
+    const result = await service.list({ page: 1, pageSize: 10 }, actor);
+
+    expect(result.items[0]).toMatchObject({
+      author: {
+        id: 'admin-1',
+        name: 'admin@example.com',
+        email: 'admin@example.com',
+      },
+    });
+    expect(JSON.stringify(result)).not.toContain('password_hash');
   });
 });

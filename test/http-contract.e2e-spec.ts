@@ -46,6 +46,7 @@ describe('HTTP contract (e2e)', () => {
     expect(generic.body).toEqual({
       code: 'BAD_REQUEST',
       message: 'Bad request',
+      details: {},
       requestId: generic.headers['x-request-id'],
     });
   });
@@ -57,6 +58,7 @@ describe('HTTP contract (e2e)', () => {
     expect(missing.body).toEqual({
       code: 'UNAUTHORIZED',
       message: 'Bearer token required',
+      details: {},
       requestId: missing.headers['x-request-id'],
     });
     const forbidden = await request(app.getHttpServer())
@@ -65,6 +67,7 @@ describe('HTTP contract (e2e)', () => {
     expect(forbidden.body).toEqual({
       code: 'FORBIDDEN',
       message: 'Insufficient role',
+      details: {},
       requestId: forbidden.headers['x-request-id'],
     });
   });
@@ -76,6 +79,7 @@ describe('HTTP contract (e2e)', () => {
     expect(missing.body).toEqual({
       code: 'NOT_FOUND',
       message: 'Not found',
+      details: {},
       requestId: missing.headers['x-request-id'],
     });
     const conflict = await request(app.getHttpServer())
@@ -90,6 +94,7 @@ describe('HTTP contract (e2e)', () => {
     expect(failure.body).toEqual({
       code: 'INTERNAL_ERROR',
       message: 'Internal server error',
+      details: {},
       requestId: failure.headers['x-request-id'],
     });
     expect(JSON.stringify(failure)).not.toContain('token=secret');
@@ -117,6 +122,7 @@ describe('HTTP contract (e2e)', () => {
     expect(response.body).toEqual({
       code: 'NOT_FOUND',
       message: 'Not found',
+      details: {},
       requestId: replacement,
     });
     for (const unsafeRequestId of unsafeRequestIds) {
@@ -152,6 +158,7 @@ describe('HTTP contract (e2e)', () => {
     expect(limited.body).toEqual({
       code: 'RATE_LIMITED',
       message: 'Too many requests',
+      details: {},
       requestId: limited.headers['x-request-id'],
     });
   });

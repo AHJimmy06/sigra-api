@@ -27,7 +27,7 @@ export function createOpenApiDocument(app: INestApplication): OpenAPIObject {
   document.components.schemas ??= {};
   document.components.schemas.Phase0Error = {
     type: 'object',
-    required: ['code', 'message', 'requestId'],
+    required: ['code', 'message', 'details', 'requestId'],
     properties: {
       code: {
         type: 'string',

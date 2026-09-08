@@ -20,6 +20,7 @@ import {
   CreateResidentDto,
   PaginatedResidentsResponseDto,
   ResidentResponseDto,
+  ResidentUpdateResponseDto,
   UpdateResidentDto,
 } from './resident.dto';
 import { ResidentsService } from './residents.service';
@@ -48,6 +49,7 @@ export class ResidentsController {
   }
 
   @Patch(':id')
+  @ApiOkResponse({ type: ResidentUpdateResponseDto })
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateResidentDto,

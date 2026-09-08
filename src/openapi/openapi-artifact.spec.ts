@@ -23,6 +23,10 @@ describe('Phase 0 OpenAPI artifact', () => {
 
   it.each([
     [
+      '/api/access/events',
+      '#/components/schemas/PaginatedAccessEventsResponseDto',
+    ],
+    [
       '/api/announcements',
       '#/components/schemas/PaginatedAnnouncementsResponseDto',
     ],
@@ -62,5 +66,93 @@ describe('Phase 0 OpenAPI artifact', () => {
       '#/components/schemas/Phase0Error',
     );
     expect(identity.security).toEqual([{ bearer: [] }]);
+    expect(identity.responses['200']).toHaveProperty(
+      'content.application/json.schema.$ref',
+      '#/components/schemas/LoginUserDto',
+    );
+  });
+
+  it('documents the exact access history query without internal user fields', () => {
+    const operation = document.paths['/api/access/events']?.get;
+    if (!operation) throw new Error('Missing GET /api/access/events');
+    expect(
+      operation.parameters?.map((parameter) => {
+        if ('$ref' in parameter) return parameter.$ref;
+        return parameter.name;
+      }),
+    ).toEqual([
+      'page',
+      'pageSize',
+      'search',
+      'from',
+      'to',
+      'decision',
+      'direction',
+    ]);
+    expect(
+      operation.parameters?.every(
+        (parameter) => '$ref' in parameter || parameter.required === false,
+      ),
+    ).toBe(true);
+    expect(JSON.stringify(operation)).not.toContain('passwordHash');
+    const toParameter = operation.parameters?.find(
+      (parameter) => !('$ref' in parameter) && parameter.name === 'to',
+    );
+    expect(toParameter).toMatchObject({
+      description:
+        'Inclusive ISO 8601 upper bound. A date-only value includes the full calendar day in the configured RESIDENTIAL_TIME_ZONE.',
+    });
+  });
+
+  it('documents exact critical success and error shapes', () => {
+    expect(
+      document.paths['/api/dashboard/metrics']?.get?.responses['200'],
+    ).toHaveProperty(
+      'content.application/json.schema.$ref',
+      '#/components/schemas/DashboardMetricsResponseDto',
+    );
+    expect(
+      document.paths['/api/access/validate']?.post?.responses['200'],
+    ).toHaveProperty(
+      'content.application/json.schema.$ref',
+      '#/components/schemas/ValidateAccessResponseDto',
+    );
+    expect(document.components?.schemas?.Phase0Error).toMatchObject({
+      required: ['code', 'message', 'details', 'requestId'],
+    });
+    expect(
+      document.paths['/api/access/passes']?.get?.responses['200'],
+    ).toHaveProperty('content.application/json.schema', {
+      type: 'array',
+      items: { $ref: '#/components/schemas/AccessPassResponseDto' },
+    });
+    expect(
+      document.paths['/api/access/passes']?.post?.responses['201'],
+    ).toHaveProperty(
+      'content.application/json.schema.$ref',
+      '#/components/schemas/AccessPassResponseDto',
+    );
+    expect(
+      document.paths['/api/access/passes/{id}/qr']?.get?.responses['200'],
+    ).toHaveProperty(
+      'content.application/json.schema.$ref',
+      '#/components/schemas/CurrentQrResponseDto',
+    );
+    const publicSchemas = JSON.stringify(document.components?.schemas);
+    for (const internalField of [
+      'passwordHash',
+      'encryptedSecret',
+      'requestFingerprint',
+      'resident.unit',
+      'guard.passwordHash',
+    ]) {
+      expect(publicSchemas).not.toContain(internalField);
+    }
+    expect(document.components?.schemas).not.toHaveProperty('Resident');
+    expect(document.components?.schemas).not.toHaveProperty('ResidentialUnit');
+    expect(document.components?.schemas).toHaveProperty(
+      'ResidentResponseDto.properties.unit.$ref',
+      '#/components/schemas/ResidentUnitResponseDto',
+    );
   });
 });

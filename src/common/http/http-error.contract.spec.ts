@@ -62,11 +62,16 @@ describe('HTTP error contract', () => {
     ).toEqual({
       code: 'BAD_REQUEST',
       message: 'Bad request',
+      details: {},
     });
     expect(
       normalizeHttpException(new InternalServerErrorException('SQL token'))
         .body,
-    ).toEqual({ code: 'INTERNAL_ERROR', message: 'Internal server error' });
+    ).toEqual({
+      code: 'INTERNAL_ERROR',
+      message: 'Internal server error',
+      details: {},
+    });
     expect(new HttpExceptionFilter()).toBeInstanceOf(HttpExceptionFilter);
   });
 

@@ -35,8 +35,16 @@ export class AnnouncementResponseDto {
   @ApiProperty({ format: 'date-time', nullable: true })
   publishedAt!: string | null;
   @ApiProperty({ format: 'uuid', nullable: true }) authorUserId!: string | null;
+  @ApiProperty({ type: () => AnnouncementAuthorResponseDto, nullable: true })
+  author!: AnnouncementAuthorResponseDto | null;
   @ApiProperty({ format: 'date-time' }) createdAt!: string;
   @ApiProperty({ format: 'date-time' }) updatedAt!: string;
+}
+
+export class AnnouncementAuthorResponseDto {
+  @ApiProperty({ format: 'uuid' }) id!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty({ format: 'email' }) email!: string;
 }
 
 export class PaginatedAnnouncementsResponseDto {

@@ -14,7 +14,7 @@ export type HttpErrorBody = {
   code: HttpErrorCode;
   message: string;
   requestId: string;
-  details?: Record<string, string[]>;
+  details: Record<string, string[]>;
 };
 
 export const SAFE_PUBLIC_4XX_MESSAGES = new Set([
@@ -38,6 +38,7 @@ export const SAFE_PUBLIC_4XX_MESSAGES = new Set([
   'Unit cannot be deactivated while active residents are linked to it',
   'Invalid ticket status transition',
   'Invalid image name',
+  'Client event ID was already used for a different validation request',
 ]);
 
 export class ContractValidationException extends BadRequestException {

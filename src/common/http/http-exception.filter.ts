@@ -52,14 +52,18 @@ export function normalizeHttpException(exception: unknown): {
             message && SAFE_PUBLIC_4XX_MESSAGES.has(message)
               ? message
               : defaultEntry[1],
-          ...(details ? { details } : {}),
+          details: details ?? {},
         },
       };
     }
   }
   return {
     status: HttpStatus.INTERNAL_SERVER_ERROR,
-    body: { code: 'INTERNAL_ERROR', message: 'Internal server error' },
+    body: {
+      code: 'INTERNAL_ERROR',
+      message: 'Internal server error',
+      details: {},
+    },
   };
 }
 

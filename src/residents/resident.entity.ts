@@ -8,6 +8,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { ResidentialUnit } from '../units/unit.entity';
+import { ApiHideProperty } from '@nestjs/swagger';
 
 @Entity('residents')
 export class Resident {
@@ -18,6 +19,7 @@ export class Resident {
   @Column({ name: 'unit_id', type: 'uuid' }) unitId!: string;
   @ManyToOne(() => ResidentialUnit, { eager: true, onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'unit_id' })
+  @ApiHideProperty()
   unit!: ResidentialUnit;
   @CreateDateColumn({ name: 'created_at' }) createdAt!: Date;
   @UpdateDateColumn({ name: 'updated_at' }) updatedAt!: Date;
