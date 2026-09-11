@@ -62,12 +62,14 @@ describe('JWT authentication and role enforcement (e2e)', () => {
                       role: Role.GUARD,
                       residentId: null,
                     }
-                  : {
-                      id,
-                      email: 'admin@example.com',
-                      role: Role.ADMIN,
-                      residentId: null,
-                    },
+                  : id === 'admin-1'
+                    ? {
+                        id,
+                        email: 'admin@example.com',
+                        role: Role.ADMIN,
+                        residentId: null,
+                      }
+                    : null,
               ),
           },
         },
@@ -80,6 +82,26 @@ describe('JWT authentication and role enforcement (e2e)', () => {
   });
   it('rejects missing bearer authentication', () =>
     request(app.getHttpServer()).get('/api/protected/admin').expect(401));
+  it('rejects an unknown bearer subject without exposing the credential', async () => {
+    const token = await jwt.signAsync({
+      sub: 'missing-user',
+      email: 'missing@example.com',
+      role: Role.ADMIN,
+      residentId: null,
+    });
+
+    const response = await request(app.getHttpServer())
+      .get('/api/protected/admin')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(401);
+
+    expect(JSON.stringify(response.body)).not.toContain(token);
+  });
+  it('preserves case-sensitive Bearer authentication', () =>
+    request(app.getHttpServer())
+      .get('/api/protected/admin')
+      .set('Authorization', 'bearer malformed-token')
+      .expect(401));
   it('rejects a valid token with the wrong role', async () => {
     const token = await jwt.signAsync({
       sub: 'guard-1',
