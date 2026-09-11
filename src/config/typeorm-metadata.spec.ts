@@ -1,8 +1,28 @@
 import type { ColumnMetadata } from 'typeorm/metadata/ColumnMetadata';
+import { createHash } from 'node:crypto';
+import { execFile as execFileCallback } from 'node:child_process';
+import { promisify } from 'node:util';
+import { DataSource, type EntityMetadata, type QueryRunner } from 'typeorm';
 import dataSource from './typeorm.datasource';
+import { InitialSchema1724600000000 } from '../migrations/1724600000000-InitialSchema';
 import { AddAuditLogs1724600001000 } from '../migrations/1724600001000-AddAuditLogs';
 import { HardenAccessEvents1724600002000 } from '../migrations/1724600002000-HardenAccessEvents';
 import { EnforceUnitParkingLimit1724600003000 } from '../migrations/1724600003000-EnforceUnitParkingLimit';
+import { AddAuthSessionSchema1724600004000 } from '../migrations/1724600004000-AddAuthSessionSchema';
+
+const GENERATED_DUMP_COMMENT =
+  /^-- (?:PostgreSQL database dump|Dumped from database version|Dumped by pg_dump version|PostgreSQL database dump complete).*$/;
+const execFile = promisify(execFileCallback);
+const COMPOSE_ARGUMENTS = [
+  'compose',
+  '-p',
+  'sigra-phase0-local',
+  '-f',
+  'compose.dev.yml',
+];
+const OWNED_TABLES = ['auth_sessions', 'refresh_operations'];
+
+jest.setTimeout(120_000);
 
 type MetadataBuildableDataSource = typeof dataSource & {
   buildMetadatas(): Promise<void>;
@@ -16,6 +36,967 @@ function columnShape(column: ColumnMetadata) {
     primary: column.isPrimary,
     enumName: column.enumName,
   };
+}
+
+function metadataColumnShape(column: ColumnMetadata) {
+  return {
+    name: column.databaseName,
+    type: column.type,
+    length: column.length,
+    nullable: column.isNullable,
+    primary: column.isPrimary,
+    generated: column.isGenerated,
+    generationStrategy: column.generationStrategy,
+    default:
+      typeof column.default === 'function' ? column.default() : column.default,
+  };
+}
+
+function assertExactEntityMetadata(
+  metadata: EntityMetadata,
+  table: 'auth_sessions' | 'refresh_operations',
+): void {
+  const expectedColumns =
+    table === 'auth_sessions'
+      ? [
+          ['id', 'uuid', '', false, true, true, 'uuid', 'gen_random_uuid()'],
+          ['user_id', 'uuid', '', false, false, false, undefined, undefined],
+          [
+            'current_refresh_digest',
+            'bytea',
+            '',
+            false,
+            false,
+            false,
+            undefined,
+            undefined,
+          ],
+          [
+            'current_digest_key_version',
+            'varchar',
+            '32',
+            false,
+            false,
+            false,
+            undefined,
+            undefined,
+          ],
+          [
+            'current_generation',
+            'integer',
+            '',
+            false,
+            false,
+            false,
+            undefined,
+            undefined,
+          ],
+          [
+            'current_derivation_key_version',
+            'varchar',
+            '32',
+            false,
+            false,
+            false,
+            undefined,
+            undefined,
+          ],
+          [
+            'absolute_expires_at',
+            'timestamptz',
+            '',
+            false,
+            false,
+            false,
+            undefined,
+            undefined,
+          ],
+          [
+            'revoked_at',
+            'timestamptz',
+            '',
+            true,
+            false,
+            false,
+            undefined,
+            undefined,
+          ],
+          [
+            'created_at',
+            'timestamptz',
+            '',
+            false,
+            false,
+            false,
+            undefined,
+            'now()',
+          ],
+          [
+            'updated_at',
+            'timestamptz',
+            '',
+            false,
+            false,
+            false,
+            undefined,
+            'now()',
+          ],
+        ]
+      : [
+          ['id', 'uuid', '', false, true, true, 'uuid', 'gen_random_uuid()'],
+          ['session_id', 'uuid', '', false, false, false, undefined, undefined],
+          [
+            'operation_id',
+            'uuid',
+            '',
+            false,
+            false,
+            false,
+            undefined,
+            undefined,
+          ],
+          [
+            'presented_digest',
+            'bytea',
+            '',
+            false,
+            false,
+            false,
+            undefined,
+            undefined,
+          ],
+          [
+            'presented_digest_key_version',
+            'varchar',
+            '32',
+            false,
+            false,
+            false,
+            undefined,
+            undefined,
+          ],
+          [
+            'result_generation',
+            'integer',
+            '',
+            false,
+            false,
+            false,
+            undefined,
+            undefined,
+          ],
+          [
+            'result_digest_key_version',
+            'varchar',
+            '32',
+            false,
+            false,
+            false,
+            undefined,
+            undefined,
+          ],
+          [
+            'result_derivation_key_version',
+            'varchar',
+            '32',
+            false,
+            false,
+            false,
+            undefined,
+            undefined,
+          ],
+          [
+            'expires_at',
+            'timestamptz',
+            '',
+            false,
+            false,
+            false,
+            undefined,
+            undefined,
+          ],
+          [
+            'created_at',
+            'timestamptz',
+            '',
+            false,
+            false,
+            false,
+            undefined,
+            'now()',
+          ],
+        ];
+
+  expect(metadata.tableName).toBe(table);
+  expect(metadata.columns.map(metadataColumnShape).map(Object.values)).toEqual(
+    expectedColumns,
+  );
+  expect(
+    metadata.checks
+      .map((check) => [check.name, check.expression])
+      .sort(([left], [right]) => left.localeCompare(right)),
+  ).toEqual(
+    table === 'auth_sessions'
+      ? [
+          [
+            'ck_auth_sessions_current_derivation_key_version_format',
+            '"current_derivation_key_version" COLLATE "C" ~ \'^[A-Za-z0-9._-]{1,32}$\'',
+          ],
+          [
+            'ck_auth_sessions_current_digest_key_version_format',
+            '"current_digest_key_version" COLLATE "C" ~ \'^[A-Za-z0-9._-]{1,32}$\'',
+          ],
+          [
+            'ck_auth_sessions_current_generation_nonnegative',
+            '"current_generation" >= 0',
+          ],
+          [
+            'ck_auth_sessions_current_refresh_digest_length',
+            'octet_length("current_refresh_digest") = 32',
+          ],
+        ]
+      : [
+          [
+            'ck_refresh_operations_presented_digest_key_version_format',
+            '"presented_digest_key_version" COLLATE "C" ~ \'^[A-Za-z0-9._-]{1,32}$\'',
+          ],
+          [
+            'ck_refresh_operations_presented_digest_length',
+            'octet_length("presented_digest") = 32',
+          ],
+          [
+            'ck_refresh_operations_result_derivation_key_version_format',
+            '"result_derivation_key_version" COLLATE "C" ~ \'^[A-Za-z0-9._-]{1,32}$\'',
+          ],
+          [
+            'ck_refresh_operations_result_digest_key_version_format',
+            '"result_digest_key_version" COLLATE "C" ~ \'^[A-Za-z0-9._-]{1,32}$\'',
+          ],
+          [
+            'ck_refresh_operations_result_generation_nonnegative',
+            '"result_generation" >= 0',
+          ],
+        ],
+  );
+  expect(
+    metadata.foreignKeys.map((foreignKey) => [
+      foreignKey.name,
+      foreignKey.columnNames,
+      foreignKey.referencedTablePath,
+      foreignKey.referencedColumnNames,
+      foreignKey.onDelete,
+    ]),
+  ).toEqual(
+    table === 'auth_sessions'
+      ? [['fk_auth_sessions_user', ['user_id'], 'users', ['id'], 'CASCADE']]
+      : [
+          [
+            'fk_refresh_operations_session',
+            ['session_id'],
+            'auth_sessions',
+            ['id'],
+            'CASCADE',
+          ],
+        ],
+  );
+  expect(
+    metadata.indices.map((index) => [
+      index.name,
+      index.columns.map((column) => column.databaseName),
+      index.isUnique,
+      index.where,
+    ]),
+  ).toEqual(
+    table === 'auth_sessions'
+      ? [
+          [
+            'idx_auth_sessions_cleanup',
+            ['absolute_expires_at', 'id'],
+            false,
+            undefined,
+          ],
+          [
+            'idx_auth_sessions_user_revocation',
+            ['user_id', 'revoked_at', 'absolute_expires_at'],
+            false,
+            undefined,
+          ],
+          [
+            'uq_auth_sessions_current_refresh_digest',
+            ['current_refresh_digest'],
+            true,
+            undefined,
+          ],
+        ]
+      : [
+          [
+            'idx_refresh_operations_cleanup',
+            ['expires_at', 'id'],
+            false,
+            undefined,
+          ],
+          [
+            'idx_refresh_operations_presented_digest',
+            ['presented_digest'],
+            false,
+            undefined,
+          ],
+          [
+            'uq_refresh_operations_session_operation',
+            ['session_id', 'operation_id'],
+            true,
+            undefined,
+          ],
+        ],
+  );
+}
+
+function assertExactAppliedIndexCatalog(
+  indexes: Array<Record<string, unknown>>,
+): void {
+  const expectedIndexes = [
+    {
+      indexname: 'auth_sessions_pkey',
+      indexdef:
+        'CREATE UNIQUE INDEX auth_sessions_pkey ON public.auth_sessions USING btree (id)',
+    },
+    {
+      indexname: 'idx_auth_sessions_cleanup',
+      indexdef:
+        'CREATE INDEX idx_auth_sessions_cleanup ON public.auth_sessions USING btree (absolute_expires_at, id)',
+    },
+    {
+      indexname: 'idx_auth_sessions_user_revocation',
+      indexdef:
+        'CREATE INDEX idx_auth_sessions_user_revocation ON public.auth_sessions USING btree (user_id, revoked_at, absolute_expires_at)',
+    },
+    {
+      indexname: 'idx_refresh_operations_cleanup',
+      indexdef:
+        'CREATE INDEX idx_refresh_operations_cleanup ON public.refresh_operations USING btree (expires_at, id)',
+    },
+    {
+      indexname: 'idx_refresh_operations_presented_digest',
+      indexdef:
+        'CREATE INDEX idx_refresh_operations_presented_digest ON public.refresh_operations USING btree (presented_digest)',
+    },
+    {
+      indexname: 'refresh_operations_pkey',
+      indexdef:
+        'CREATE UNIQUE INDEX refresh_operations_pkey ON public.refresh_operations USING btree (id)',
+    },
+    {
+      indexname: 'uq_auth_sessions_current_refresh_digest',
+      indexdef:
+        'CREATE UNIQUE INDEX uq_auth_sessions_current_refresh_digest ON public.auth_sessions USING btree (current_refresh_digest)',
+    },
+    {
+      indexname: 'uq_refresh_operations_session_operation',
+      indexdef:
+        'CREATE UNIQUE INDEX uq_refresh_operations_session_operation ON public.refresh_operations USING btree (session_id, operation_id)',
+    },
+  ];
+
+  if (JSON.stringify(indexes) !== JSON.stringify(expectedIndexes)) {
+    throw new Error(
+      'Applied catalog indexes must match the complete schema contract exactly',
+    );
+  }
+}
+
+function canonicalizeSchemaDump(dump: string): string {
+  return dump
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .filter((line) => !GENERATED_DUMP_COMMENT.test(line))
+    .map((line) => line.replace(/[\t ]+$/u, ''))
+    .join('\n');
+}
+
+function assertSchemaProofPreconditions(
+  services: string[],
+  dumpExitCode = 0,
+  dumpStderr = '',
+): void {
+  if (!services.includes('postgres')) {
+    throw new Error('Compose service "postgres" is required for schema proof');
+  }
+  if (dumpExitCode !== 0) {
+    throw new Error(`pg_dump failed: ${dumpStderr}`);
+  }
+}
+
+function schemaDumpHash(dump: string): string {
+  return createHash('sha256').update(dump).digest('hex');
+}
+
+function boundedSchemaDumpDiff(before: string, after: string): string {
+  const beforeLines = before.split('\n');
+  const afterLines = after.split('\n');
+  const lines = [
+    '--- before.sql',
+    '+++ after.sql',
+    '@@ schema dump mismatch @@',
+  ];
+  const limit = Math.min(Math.max(beforeLines.length, afterLines.length), 200);
+
+  for (let index = 0; index < limit; index += 1) {
+    if (beforeLines[index] !== afterLines[index]) {
+      if (beforeLines[index] !== undefined)
+        lines.push(`-${beforeLines[index]}`);
+      if (afterLines[index] !== undefined) lines.push(`+${afterLines[index]}`);
+    }
+  }
+
+  return lines.join('\n');
+}
+
+function assertEqualSchemaDumps(before: string, after: string): void {
+  if (before === after) return;
+
+  throw new Error(
+    `Schema dump mismatch: before=${schemaDumpHash(before)} after=${schemaDumpHash(after)}\n${boundedSchemaDumpDiff(before, after)}`,
+  );
+}
+
+async function runWithCleanup<T>(
+  operation: () => Promise<T>,
+  cleanups: Array<() => Promise<void>>,
+): Promise<T> {
+  let result: T | undefined;
+  let primaryError: unknown;
+
+  try {
+    result = await operation();
+  } catch (error) {
+    primaryError = error;
+  }
+
+  const cleanupErrors: unknown[] = [];
+  for (const cleanup of cleanups) {
+    try {
+      await cleanup();
+    } catch (error) {
+      cleanupErrors.push(error);
+    }
+  }
+
+  if (primaryError !== undefined) {
+    if (cleanupErrors.length > 0) {
+      throw new AggregateError([primaryError, ...cleanupErrors]);
+    }
+    throw primaryError instanceof Error
+      ? primaryError
+      : new Error(
+          typeof primaryError === 'string'
+            ? primaryError
+            : 'Schema proof failed with a non-error value',
+        );
+  }
+  if (cleanupErrors.length > 0) {
+    throw new AggregateError(cleanupErrors);
+  }
+
+  return result!;
+}
+
+function queryRows(value: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(value)) {
+    throw new Error('Expected PostgreSQL query to return rows');
+  }
+  return (value as unknown[]).map((row) => {
+    if (typeof row !== 'object' || row === null || Array.isArray(row)) {
+      throw new Error('Expected PostgreSQL query row to be an object');
+    }
+    return row as Record<string, unknown>;
+  });
+}
+
+function schemaProofEnvironment(): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    SIGRA_POSTGRES_PASSWORD:
+      process.env.SIGRA_POSTGRES_PASSWORD ?? 'schema-proof',
+  };
+}
+
+async function runCompose(
+  args: string[],
+): Promise<{ stdout: string; stderr: string }> {
+  return execFile('docker', [...COMPOSE_ARGUMENTS, ...args], {
+    env: schemaProofEnvironment(),
+  });
+}
+
+async function dumpSchema(database: string, user: string): Promise<string> {
+  const result = await runCompose([
+    'exec',
+    '-T',
+    'postgres',
+    'pg_dump',
+    '--schema-only',
+    '--no-owner',
+    '--no-privileges',
+    '--quote-all-identifiers',
+    '--restrict-key=sigraschemaproof',
+    '-U',
+    user,
+    '-d',
+    database,
+  ]);
+  return canonicalizeSchemaDump(result.stdout);
+}
+
+async function extensionDeclarations(proof: DataSource): Promise<unknown[]> {
+  return queryRows(
+    await proof.query(`
+    SELECT e.extname, e.extversion, d.classid::regclass::text AS classid,
+           d.objid, d.objsubid, d.refclassid::regclass::text AS refclassid,
+           d.refobjid, d.refobjsubid, d.deptype
+    FROM pg_extension e
+    LEFT JOIN pg_depend d ON d.refclassid = 'pg_extension'::regclass AND d.refobjid = e.oid
+    ORDER BY e.extname, e.extversion, d.classid, d.objid, d.objsubid,
+             d.refclassid, d.refobjid, d.refobjsubid, d.deptype
+  `),
+  );
+}
+
+async function assertExactAppliedOwnedCatalog(
+  proof: DataSource,
+): Promise<void> {
+  const columns = queryRows(
+    await proof.query(
+      `
+    SELECT table_name, column_name, ordinal_position, udt_name,
+           character_maximum_length, is_nullable, column_default, is_identity
+    FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = ANY($1)
+    ORDER BY table_name, ordinal_position
+  `,
+      [OWNED_TABLES],
+    ),
+  );
+  const expectedColumns = [
+    ['auth_sessions', 'id', 1, 'uuid', null, 'NO', 'gen_random_uuid()', 'NO'],
+    ['auth_sessions', 'user_id', 2, 'uuid', null, 'NO', null, 'NO'],
+    [
+      'auth_sessions',
+      'current_refresh_digest',
+      3,
+      'bytea',
+      null,
+      'NO',
+      null,
+      'NO',
+    ],
+    [
+      'auth_sessions',
+      'current_digest_key_version',
+      4,
+      'varchar',
+      32,
+      'NO',
+      null,
+      'NO',
+    ],
+    ['auth_sessions', 'current_generation', 5, 'int4', null, 'NO', null, 'NO'],
+    [
+      'auth_sessions',
+      'current_derivation_key_version',
+      6,
+      'varchar',
+      32,
+      'NO',
+      null,
+      'NO',
+    ],
+    [
+      'auth_sessions',
+      'absolute_expires_at',
+      7,
+      'timestamptz',
+      null,
+      'NO',
+      null,
+      'NO',
+    ],
+    ['auth_sessions', 'revoked_at', 8, 'timestamptz', null, 'YES', null, 'NO'],
+    [
+      'auth_sessions',
+      'created_at',
+      9,
+      'timestamptz',
+      null,
+      'NO',
+      'now()',
+      'NO',
+    ],
+    [
+      'auth_sessions',
+      'updated_at',
+      10,
+      'timestamptz',
+      null,
+      'NO',
+      'now()',
+      'NO',
+    ],
+    [
+      'refresh_operations',
+      'id',
+      1,
+      'uuid',
+      null,
+      'NO',
+      'gen_random_uuid()',
+      'NO',
+    ],
+    ['refresh_operations', 'session_id', 2, 'uuid', null, 'NO', null, 'NO'],
+    ['refresh_operations', 'operation_id', 3, 'uuid', null, 'NO', null, 'NO'],
+    [
+      'refresh_operations',
+      'presented_digest',
+      4,
+      'bytea',
+      null,
+      'NO',
+      null,
+      'NO',
+    ],
+    [
+      'refresh_operations',
+      'presented_digest_key_version',
+      5,
+      'varchar',
+      32,
+      'NO',
+      null,
+      'NO',
+    ],
+    [
+      'refresh_operations',
+      'result_generation',
+      6,
+      'int4',
+      null,
+      'NO',
+      null,
+      'NO',
+    ],
+    [
+      'refresh_operations',
+      'result_digest_key_version',
+      7,
+      'varchar',
+      32,
+      'NO',
+      null,
+      'NO',
+    ],
+    [
+      'refresh_operations',
+      'result_derivation_key_version',
+      8,
+      'varchar',
+      32,
+      'NO',
+      null,
+      'NO',
+    ],
+    [
+      'refresh_operations',
+      'expires_at',
+      9,
+      'timestamptz',
+      null,
+      'NO',
+      null,
+      'NO',
+    ],
+    [
+      'refresh_operations',
+      'created_at',
+      10,
+      'timestamptz',
+      null,
+      'NO',
+      'now()',
+      'NO',
+    ],
+  ];
+  expect(columns.map((column) => Object.values(column))).toEqual(
+    expectedColumns,
+  );
+
+  const constraints = queryRows(
+    await proof.query(
+      `
+    SELECT conname, contype, conrelid::regclass::text AS table_name,
+           ARRAY(SELECT attname FROM unnest(conkey) WITH ORDINALITY AS keys(attnum, position)
+                 JOIN pg_attribute attribute ON attribute.attrelid = conrelid AND attribute.attnum = keys.attnum
+                 ORDER BY keys.position) AS column_names,
+           confrelid::regclass::text AS referenced_table,
+           ARRAY(SELECT attname FROM unnest(confkey) WITH ORDINALITY AS keys(attnum, position)
+                 JOIN pg_attribute attribute ON attribute.attrelid = confrelid AND attribute.attnum = keys.attnum
+                 ORDER BY keys.position) AS referenced_column_names,
+           confdeltype, pg_get_constraintdef(oid, false) AS definition
+    FROM pg_constraint
+    WHERE conrelid = ANY($1::regclass[])
+    ORDER BY conname
+  `,
+      ['{"auth_sessions","refresh_operations"}'],
+    ),
+  );
+  expect(constraints).toEqual([
+    {
+      table_name: 'auth_sessions',
+      conname: 'auth_sessions_pkey',
+      contype: 'p',
+      column_names: '{id}',
+      referenced_table: '-',
+      referenced_column_names: '{}',
+      confdeltype: ' ',
+      definition: 'PRIMARY KEY (id)',
+    },
+    {
+      table_name: 'auth_sessions',
+      conname: 'ck_auth_sessions_current_derivation_key_version_format',
+      contype: 'c',
+      column_names: '{current_derivation_key_version}',
+      referenced_table: '-',
+      referenced_column_names: '{}',
+      confdeltype: ' ',
+      definition:
+        'CHECK ((((current_derivation_key_version)::text COLLATE "C") ~ \'^[A-Za-z0-9._-]{1,32}$\'::text))',
+    },
+    {
+      table_name: 'auth_sessions',
+      conname: 'ck_auth_sessions_current_digest_key_version_format',
+      contype: 'c',
+      column_names: '{current_digest_key_version}',
+      referenced_table: '-',
+      referenced_column_names: '{}',
+      confdeltype: ' ',
+      definition:
+        'CHECK ((((current_digest_key_version)::text COLLATE "C") ~ \'^[A-Za-z0-9._-]{1,32}$\'::text))',
+    },
+    {
+      table_name: 'auth_sessions',
+      conname: 'ck_auth_sessions_current_generation_nonnegative',
+      contype: 'c',
+      column_names: '{current_generation}',
+      referenced_table: '-',
+      referenced_column_names: '{}',
+      confdeltype: ' ',
+      definition: 'CHECK ((current_generation >= 0))',
+    },
+    {
+      table_name: 'auth_sessions',
+      conname: 'ck_auth_sessions_current_refresh_digest_length',
+      contype: 'c',
+      column_names: '{current_refresh_digest}',
+      referenced_table: '-',
+      referenced_column_names: '{}',
+      confdeltype: ' ',
+      definition: 'CHECK ((octet_length(current_refresh_digest) = 32))',
+    },
+    {
+      table_name: 'refresh_operations',
+      conname: 'ck_refresh_operations_presented_digest_key_version_format',
+      contype: 'c',
+      column_names: '{presented_digest_key_version}',
+      referenced_table: '-',
+      referenced_column_names: '{}',
+      confdeltype: ' ',
+      definition:
+        'CHECK ((((presented_digest_key_version)::text COLLATE "C") ~ \'^[A-Za-z0-9._-]{1,32}$\'::text))',
+    },
+    {
+      table_name: 'refresh_operations',
+      conname: 'ck_refresh_operations_presented_digest_length',
+      contype: 'c',
+      column_names: '{presented_digest}',
+      referenced_table: '-',
+      referenced_column_names: '{}',
+      confdeltype: ' ',
+      definition: 'CHECK ((octet_length(presented_digest) = 32))',
+    },
+    {
+      table_name: 'refresh_operations',
+      conname: 'ck_refresh_operations_result_derivation_key_version_format',
+      contype: 'c',
+      column_names: '{result_derivation_key_version}',
+      referenced_table: '-',
+      referenced_column_names: '{}',
+      confdeltype: ' ',
+      definition:
+        'CHECK ((((result_derivation_key_version)::text COLLATE "C") ~ \'^[A-Za-z0-9._-]{1,32}$\'::text))',
+    },
+    {
+      table_name: 'refresh_operations',
+      conname: 'ck_refresh_operations_result_digest_key_version_format',
+      contype: 'c',
+      column_names: '{result_digest_key_version}',
+      referenced_table: '-',
+      referenced_column_names: '{}',
+      confdeltype: ' ',
+      definition:
+        'CHECK ((((result_digest_key_version)::text COLLATE "C") ~ \'^[A-Za-z0-9._-]{1,32}$\'::text))',
+    },
+    {
+      table_name: 'refresh_operations',
+      conname: 'ck_refresh_operations_result_generation_nonnegative',
+      contype: 'c',
+      column_names: '{result_generation}',
+      referenced_table: '-',
+      referenced_column_names: '{}',
+      confdeltype: ' ',
+      definition: 'CHECK ((result_generation >= 0))',
+    },
+    {
+      table_name: 'auth_sessions',
+      conname: 'fk_auth_sessions_user',
+      contype: 'f',
+      column_names: '{user_id}',
+      referenced_table: 'users',
+      referenced_column_names: '{id}',
+      confdeltype: 'c',
+      definition:
+        'FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE',
+    },
+    {
+      table_name: 'refresh_operations',
+      conname: 'fk_refresh_operations_session',
+      contype: 'f',
+      column_names: '{session_id}',
+      referenced_table: 'auth_sessions',
+      referenced_column_names: '{id}',
+      confdeltype: 'c',
+      definition:
+        'FOREIGN KEY (session_id) REFERENCES auth_sessions(id) ON DELETE CASCADE',
+    },
+    {
+      table_name: 'refresh_operations',
+      conname: 'refresh_operations_pkey',
+      contype: 'p',
+      column_names: '{id}',
+      referenced_table: '-',
+      referenced_column_names: '{}',
+      confdeltype: ' ',
+      definition: 'PRIMARY KEY (id)',
+    },
+  ]);
+
+  const indexes = queryRows(
+    await proof.query(
+      `
+    SELECT indexname, indexdef FROM pg_indexes
+    WHERE schemaname = 'public' AND tablename = ANY($1)
+    ORDER BY indexname
+  `,
+      [OWNED_TABLES],
+    ),
+  );
+  assertExactAppliedIndexCatalog(indexes);
+  expect(await proof.query('SELECT * FROM "auth_sessions"')).toEqual([]);
+  expect(await proof.query('SELECT * FROM "refresh_operations"')).toEqual([]);
+}
+
+async function runDisposableSchemaProof(): Promise<void> {
+  const services = (await runCompose(['config', '--services'])).stdout
+    .trim()
+    .split('\n');
+  assertSchemaProofPreconditions(services);
+  await runCompose(['up', '-d', '--wait', 'postgres']);
+
+  const database = `sigra_schema_proof_${process.pid}`;
+  const user = process.env.DATABASE_USER ?? 'sigra_phase0_dev';
+  const password = process.env.SIGRA_POSTGRES_PASSWORD ?? 'schema-proof';
+  const port = Number(process.env.SIGRA_POSTGRES_PORT ?? 55439);
+  let proof: DataSource | undefined;
+
+  await runWithCleanup(async () => {
+    await runCompose([
+      'exec',
+      '-T',
+      'postgres',
+      'psql',
+      '-U',
+      user,
+      '-d',
+      'postgres',
+      '-c',
+      `CREATE DATABASE "${database}"`,
+    ]);
+    proof = new DataSource({
+      ...dataSource.options,
+      host: '127.0.0.1',
+      port,
+      username: user,
+      password,
+      database,
+      migrations: [
+        InitialSchema1724600000000,
+        AddAuditLogs1724600001000,
+        HardenAccessEvents1724600002000,
+        EnforceUnitParkingLimit1724600003000,
+      ],
+    });
+    await proof.initialize();
+    await proof.runMigrations();
+    const beforeDump = await dumpSchema(database, user);
+    const beforeExtensions = await extensionDeclarations(proof);
+    const runner = proof.createQueryRunner();
+    try {
+      await new AddAuthSessionSchema1724600004000().up(runner);
+    } finally {
+      await runner.release();
+    }
+    await assertExactAppliedOwnedCatalog(proof);
+    const downRunner = proof.createQueryRunner();
+    try {
+      await new AddAuthSessionSchema1724600004000().down(downRunner);
+    } finally {
+      await downRunner.release();
+    }
+    expect(
+      await proof.query(`SELECT to_regclass('public.auth_sessions')`),
+    ).toEqual([{ to_regclass: null }]);
+    expect(
+      await proof.query(`SELECT to_regclass('public.refresh_operations')`),
+    ).toEqual([{ to_regclass: null }]);
+    expect(await extensionDeclarations(proof)).toEqual(beforeExtensions);
+    assertEqualSchemaDumps(beforeDump, await dumpSchema(database, user));
+  }, [
+    async () => proof?.destroy(),
+    async () =>
+      runCompose([
+        'exec',
+        '-T',
+        'postgres',
+        'psql',
+        '-U',
+        user,
+        '-d',
+        'postgres',
+        '-c',
+        `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${database}'`,
+      ]).then(() => undefined),
+    async () =>
+      runCompose([
+        'exec',
+        '-T',
+        'postgres',
+        'psql',
+        '-U',
+        user,
+        '-d',
+        'postgres',
+        '-c',
+        `DROP DATABASE IF EXISTS "${database}"`,
+      ]).then(() => undefined),
+    async () => runCompose(['down']).then(() => undefined),
+  ]);
 }
 
 describe('PostgreSQL entity metadata', () => {
@@ -232,4 +1213,283 @@ describe('PostgreSQL entity metadata', () => {
       expect.stringContaining('DROP CONSTRAINT IF EXISTS'),
     ]);
   });
+
+  it('maps the exact secret-free session and refresh-operation metadata', () => {
+    const session = dataSource.getMetadata('auth_sessions');
+    const operation = dataSource.getMetadata('refresh_operations');
+
+    assertExactEntityMetadata(session, 'auth_sessions');
+    assertExactEntityMetadata(operation, 'refresh_operations');
+
+    expect(session.columns.map(columnShape)).toEqual([
+      {
+        name: 'id',
+        type: 'uuid',
+        nullable: false,
+        primary: true,
+        enumName: undefined,
+      },
+      {
+        name: 'user_id',
+        type: 'uuid',
+        nullable: false,
+        primary: false,
+        enumName: undefined,
+      },
+      {
+        name: 'current_refresh_digest',
+        type: 'bytea',
+        nullable: false,
+        primary: false,
+        enumName: undefined,
+      },
+      {
+        name: 'current_digest_key_version',
+        type: 'varchar',
+        nullable: false,
+        primary: false,
+        enumName: undefined,
+      },
+      {
+        name: 'current_generation',
+        type: 'integer',
+        nullable: false,
+        primary: false,
+        enumName: undefined,
+      },
+      {
+        name: 'current_derivation_key_version',
+        type: 'varchar',
+        nullable: false,
+        primary: false,
+        enumName: undefined,
+      },
+      {
+        name: 'absolute_expires_at',
+        type: 'timestamptz',
+        nullable: false,
+        primary: false,
+        enumName: undefined,
+      },
+      {
+        name: 'revoked_at',
+        type: 'timestamptz',
+        nullable: true,
+        primary: false,
+        enumName: undefined,
+      },
+      {
+        name: 'created_at',
+        type: 'timestamptz',
+        nullable: false,
+        primary: false,
+        enumName: undefined,
+      },
+      {
+        name: 'updated_at',
+        type: 'timestamptz',
+        nullable: false,
+        primary: false,
+        enumName: undefined,
+      },
+    ]);
+    expect(operation.columns.map(columnShape)).toEqual([
+      {
+        name: 'id',
+        type: 'uuid',
+        nullable: false,
+        primary: true,
+        enumName: undefined,
+      },
+      {
+        name: 'session_id',
+        type: 'uuid',
+        nullable: false,
+        primary: false,
+        enumName: undefined,
+      },
+      {
+        name: 'operation_id',
+        type: 'uuid',
+        nullable: false,
+        primary: false,
+        enumName: undefined,
+      },
+      {
+        name: 'presented_digest',
+        type: 'bytea',
+        nullable: false,
+        primary: false,
+        enumName: undefined,
+      },
+      {
+        name: 'presented_digest_key_version',
+        type: 'varchar',
+        nullable: false,
+        primary: false,
+        enumName: undefined,
+      },
+      {
+        name: 'result_generation',
+        type: 'integer',
+        nullable: false,
+        primary: false,
+        enumName: undefined,
+      },
+      {
+        name: 'result_digest_key_version',
+        type: 'varchar',
+        nullable: false,
+        primary: false,
+        enumName: undefined,
+      },
+      {
+        name: 'result_derivation_key_version',
+        type: 'varchar',
+        nullable: false,
+        primary: false,
+        enumName: undefined,
+      },
+      {
+        name: 'expires_at',
+        type: 'timestamptz',
+        nullable: false,
+        primary: false,
+        enumName: undefined,
+      },
+      {
+        name: 'created_at',
+        type: 'timestamptz',
+        nullable: false,
+        primary: false,
+        enumName: undefined,
+      },
+    ]);
+    expect(session.ownRelations).toHaveLength(1);
+    for (const metadata of [session, operation]) {
+      expect(metadata.columns.map((column) => column.databaseName)).not.toEqual(
+        expect.arrayContaining([
+          expect.stringMatching(/raw.*refresh|csrf|access.*token|password/i),
+        ]),
+      );
+    }
+  });
+
+  it('registers and emits the reversible exact session schema SQL', async () => {
+    const migration = new AddAuthSessionSchema1724600004000();
+    const upQueries: string[] = [];
+    const downQueries: string[] = [];
+    const queryRunner = {
+      query: (sql: string) => Promise.resolve(upQueries.push(sql)),
+    } as unknown as QueryRunner;
+    const downQueryRunner = {
+      query: (sql: string) => Promise.resolve(downQueries.push(sql)),
+    } as unknown as QueryRunner;
+    await migration.up(queryRunner);
+    await migration.down(downQueryRunner);
+
+    expect(
+      dataSource.migrations.filter((item) => item.name === migration.name),
+    ).toHaveLength(1);
+    expect(upQueries).toHaveLength(8);
+    expect(upQueries[0]).toContain('CREATE TABLE "auth_sessions"');
+    expect(upQueries[1]).toContain('CREATE TABLE "refresh_operations"');
+    expect(upQueries.join('\n')).toContain(
+      'COLLATE "C" ~ \'^[A-Za-z0-9._-]{1,32}$\'',
+    );
+    expect(upQueries.join('\n')).toContain('"fk_auth_sessions_user"');
+    expect(upQueries.join('\n')).toContain('"fk_refresh_operations_session"');
+    expect(upQueries.join('\n')).toContain(
+      '"uq_auth_sessions_current_refresh_digest"',
+    );
+    expect(upQueries.join('\n')).toContain(
+      '"uq_refresh_operations_session_operation"',
+    );
+    expect(downQueries.join('\n')).not.toMatch(/CASCADE/);
+    expect(downQueries).toEqual([
+      'DROP TABLE "refresh_operations"',
+      'DROP TABLE "auth_sessions"',
+    ]);
+  });
+
+  it('canonicalizes only generated pg_dump headers and whitespace', () => {
+    const dump = [
+      '-- PostgreSQL database dump',
+      '-- Dumped from database version 16.0',
+      'CREATE TABLE "users" ("id" uuid);  ',
+      '-- PostgreSQL database dump complete',
+      '',
+    ].join('\r\n');
+
+    expect(canonicalizeSchemaDump(dump)).toBe(
+      'CREATE TABLE "users" ("id" uuid);\n',
+    );
+  });
+
+  it('preserves collation, regex, casts, and SQL ordering in canonical dumps', () => {
+    const semanticSql =
+      'CHECK (("key_version" COLLATE "C" ~ \'^[A-Za-z0-9._-]{1,32}$\'))\n';
+
+    expect(canonicalizeSchemaDump(semanticSql)).toBe(semanticSql);
+  });
+
+  it('retains the primary failure and aggregates every cleanup failure', async () => {
+    const primary = new Error('child migration failed');
+    const cleanupOne = new Error('connection cleanup failed');
+    const cleanupTwo = new Error('compose cleanup failed');
+
+    await expect(
+      runWithCleanup(
+        () => Promise.reject(primary),
+        [() => Promise.reject(cleanupOne), () => Promise.reject(cleanupTwo)],
+      ),
+    ).rejects.toMatchObject({ errors: [primary, cleanupOne, cleanupTwo] });
+  });
+
+  it('rejects missing Compose postgres service and pg_dump failures', () => {
+    expect(() => assertSchemaProofPreconditions(['redis'])).toThrow(
+      'Compose service "postgres" is required',
+    );
+    expect(() =>
+      assertSchemaProofPreconditions(['postgres'], 1, 'not found'),
+    ).toThrow('pg_dump failed: not found');
+  });
+
+  it('reports a bounded dump mismatch without normalizing SQL semantics', () => {
+    expect(() =>
+      assertEqualSchemaDumps(
+        'CREATE TABLE "users" ("id" uuid);\n',
+        'CREATE TABLE "users" ("id" bigint);\n',
+      ),
+    ).toThrow('Schema dump mismatch');
+  });
+
+  it('rejects catalog index uniqueness, key-order, and filter drift', () => {
+    expect(() =>
+      assertExactAppliedIndexCatalog([
+        {
+          indexname: 'idx_auth_sessions_cleanup',
+          indexdef:
+            'CREATE INDEX idx_auth_sessions_cleanup ON public.auth_sessions USING btree (id, absolute_expires_at) WHERE revoked_at IS NULL',
+        },
+      ]),
+    ).toThrow('exactly');
+  });
+
+  it('rejects entity metadata index-filter drift', () => {
+    const metadata = dataSource.getMetadata('auth_sessions');
+    const drifted = Object.assign(Object.create(metadata), {
+      indices: metadata.indices.map((index) =>
+        index.name === 'idx_auth_sessions_cleanup'
+          ? { ...index, where: 'revoked_at IS NULL' }
+          : index,
+      ),
+    }) as EntityMetadata;
+
+    expect(() => assertExactEntityMetadata(drifted, 'auth_sessions')).toThrow();
+  });
+
+  it('proves the applied catalog and canonical rollback with the Compose PostgreSQL service', async () => {
+    await runDisposableSchemaProof();
+  }, 120_000);
 });

@@ -4,6 +4,7 @@ import { InitialSchema1724600000000 } from '../migrations/1724600000000-InitialS
 import { AddAuditLogs1724600001000 } from '../migrations/1724600001000-AddAuditLogs';
 import { HardenAccessEvents1724600002000 } from '../migrations/1724600002000-HardenAccessEvents';
 import { EnforceUnitParkingLimit1724600003000 } from '../migrations/1724600003000-EnforceUnitParkingLimit';
+import { AddAuthSessionSchema1724600004000 } from '../migrations/1724600004000-AddAuthSessionSchema';
 
 export default new DataSource({
   type: 'postgres',
@@ -18,6 +19,7 @@ export default new DataSource({
     AddAuditLogs1724600001000,
     HardenAccessEvents1724600002000,
     EnforceUnitParkingLimit1724600003000,
+    AddAuthSessionSchema1724600004000,
   ],
   synchronize: false,
 });
