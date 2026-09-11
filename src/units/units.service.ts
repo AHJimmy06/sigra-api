@@ -61,6 +61,7 @@ export class UnitsService {
 
   async create(dto: CreateUnitDto, actor: AuthUser) {
     dto = normalizeUnitInput(dto);
+    dto.code = canonicalizeUnitCode(dto.code);
     try {
       return await this.dataSource.transaction(async (manager) => {
         const units = manager.getRepository(ResidentialUnit);
@@ -86,10 +87,14 @@ export class UnitsService {
 
   async update(id: string, dto: UpdateUnitDto, actor: AuthUser) {
     dto = normalizeUnitInput(dto);
+    if (dto.code !== undefined) dto.code = canonicalizeUnitCode(dto.code);
     try {
       return await this.dataSource.transaction(async (manager) => {
         const units = manager.getRepository(ResidentialUnit);
-        const unit = await units.findOne({ where: { id } });
+        const unit = await units.findOne({
+          where: { id },
+          lock: { mode: 'pessimistic_write' },
+        });
         if (!unit) throw new NotFoundException('Unit not found');
         if (dto.active === false) {
           const activeResidents = await manager.getRepository(Resident).count({
@@ -140,4 +145,8 @@ function isUniqueViolation(error: unknown): boolean {
     'driverError' in error &&
     (error.driverError as { code?: string }).code === '23505',
   );
+}
+
+function canonicalizeUnitCode(code: string): string {
+  return code.toLowerCase();
 }

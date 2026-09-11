@@ -7,13 +7,15 @@
 - Current work unit: `pr1-contracts-and-reads-budget-500` reached terminal complete with evidence revision `sha256:4e4015c4be18a3483785b132cedf0bc1cdbead170dd5adba94b33b16b693a8f4`.
 - Native attempt token: `sha256:e66e9cd67bcd804e04804ec5f14d3e9f173141f0acd5a803aa250a73ebc140de`
 - Native risk assessment: Medium. RDD: off.
+- Current work unit: `pr2-unit-identity-and-invariants` is complete. The isolated disposable PostgreSQL proof passed migration up, normalized-index inspection, migration revert, rollback inspection, and container cleanup.
+- Remediation lineage: failed/remediated evidence revision `sha256:50a53bf47fa367a577b2986540a118397843ff13fbd9ca9f18410c882b4bcb86` is remediated by successful remediation settlement evidence revision `sha256:05fb1f36776c384e1a3b8ac71850cc48d048f758a8dc7b741e54ee1eeb44ec4c` under native attempt token `sha256:0c319179e88892d37044d8197e313aa039c3c806d5a9112918e20654f2708cba`; the old shared-volume credential failure remains historical evidence only.
 
 ## Task Completion
 
 - [x] 1.1 RED: contract/read tests.
 - [x] 1.2 GREEN: contract/read implementation.
-- [ ] 2.1 RED: unit identity and invariants.
-- [ ] 2.2 GREEN: unit identity and invariants.
+- [x] 2.1 RED: unit identity and invariants.
+- [x] 2.2 GREEN: unit identity and invariants.
 - [ ] 3.1 RED: resident identity and invariants.
 - [ ] 3.2 GREEN: resident identity and invariants.
 - [ ] 4.1 RED: unit archive lifecycle.
@@ -29,6 +31,8 @@
 |---|---|---|---|---|---|---|---|
 | 1.1 | `src/residents/resident.dto.spec.ts`, `src/units/unit.dto.spec.ts`, `src/common/pagination.dto.spec.ts`, service specs | Unit | Writer-reported baseline: 20/20 passed | Writer-reported test-first run: 5 suites failed / 6 expected failures before implementation | Writer-reported final: `npm test -- --runInBand residents units common` PASS — 6 suites, 33 tests | Normalization, safe projection, boolean `active`, empty/non-empty PATCH, list ordering, and two detail projections | Writer-reported mapper and normalization extraction; final focused suite passed |
 | 1.2 | Same PR 1 focused test files | Unit | Writer-reported baseline: 20/20 passed | Writer-reported test-first failure: 5 suites failed / 6 expected failures before implementation | Writer-reported final: `npm test -- --runInBand residents units common` PASS — 6 suites, 33 tests | Both resident and unit projections; both normalization branches; empty and boolean PATCH bodies | Writer-reported shared non-empty PATCH pipe and DTO mapper boundaries; final focused suite passed |
+| 2.1 | `src/units/units.service.spec.ts`, `src/migrations/1724600005000-HardenUnitIdentity.spec.ts` | Unit + PostgreSQL migration contract | `npm test -- --runInBand units migrations`: PASS — 3 suites, 7 tests before changes | RED: focused run failed because `HardenUnitIdentity1724600005000` did not exist; the service assertions also failed because writes retained uppercase code and deactivation did not acquire `pessimistic_write`. | GREEN: focused run PASS — 2 suites, 9 tests; required focused run PASS — 4 suites, 12 tests. | Covers canonical create code, normalized preflight/index collision diagnostics, reversible down SQL, active resident rejection, inactive resident deactivation, and deterministic unit-first lock acquisition. | No behavior-changing refactor was needed after the minimal migration/service implementation; focused tests remained green. |
+| 2.2 | Same PR 2 focused test files | Unit + PostgreSQL migration contract | Same 3-suite, 7-test safety net before modifying existing files; new migration file was N/A. | RED: same explicitly paired task-2.1 failing suite referenced the absent migration and missing canonical/lock behavior. | GREEN: `npm test -- --runInBand units migrations` PASS — 4 suites, 12 tests; `npm run build` PASS. | The migration test covers success, collision abort before DDL, and reverse constraint restoration; service tests cover canonical and active/inactive branches. | Extracted `canonicalizeUnitCode`; focused tests remained green. |
 
 ## Work Unit Evidence
 
@@ -37,6 +41,14 @@
 | Focused test command and exact result | Writer-reported: `npm test -- --runInBand residents units common`: PASS — 6 suites, 33 tests. Parent-observed spot-check: same focused suite PASS — 6 suites, 33 tests. |
 | Runtime harness command/scenario and exact result | Writer-reported: `npm run build`: PASS — Nest build completed. HTTP runtime is N/A for this contract/read slice; end-to-end acceptance is explicitly PR 6 scope. |
 | Rollback boundary | Revert `src/common/non-empty-patch.pipe.ts`, pagination/DTO mapper changes, resident/unit controllers and services, and their PR 1 tests. This removes only contract/read behavior and leaves future archive, migration, and lifecycle work untouched. |
+
+## Work Unit Evidence: PR 2 Unit Identity and Invariants
+
+| Evidence | Result |
+|---|---|
+| Focused test command and exact result | Parent-observed spot-check rerun: `npm test -- --runInBand units migrations`: PASS — 4 suites, 12 tests. |
+| Runtime harness command/scenario and exact result | Historical shared-volume run: blocked by absent/mismatched credentials and not reused. Remediation: a uniquely named disposable PostgreSQL 16 container with no persistent volume became ready on attempt 2; process-scoped database variables ran `npm run migration:run` successfully, inspection proved `uq_units_code_normalized` exists and `units_code_key` is absent, `npm run migration:revert` succeeded, rollback inspection proved the index absent and raw-code unique constraint restored, and `docker rm -f` removed the container. Temporary credentials were not persisted or reported. |
+| Rollback boundary | Revert `src/migrations/1724600005000-HardenUnitIdentity.ts`, its spec, the registration in `src/config/typeorm.datasource.ts`, and the PR 2 unit entity/service/test changes. This removes only normalized unit identity and deactivation locking, leaving PR 1 contracts/mappers and all resident/archive work untouched. |
 
 ## Verification and Accounting
 
@@ -47,9 +59,15 @@
 - Parent-observed focused-suite spot-check: PASS — 6 suites, 33 tests.
 - Writer-reported source/test authored change: 382 lines (368 additions, 14 deletions).
 - Native attempt accounting: 466 lines because selected untracked `tasks.md` and `apply-progress.md` were included.
+- PR 2 source/test authored change: 209 lines (207 additions, 2 deletions); no generated files included.
+- PR 2 parent-observed spot-check rerun `npm test -- --runInBand units migrations`: PASS — 4 suites, 12 tests.
+- PR 2 final `npm run build`: PASS.
+- PR 2 final `git diff --check`: PASS.
+- PR 2 historical PostgreSQL proof: PARTIAL — the shared Compose volume rejected available credentials; it was not modified.
+- PR 2 remediation PostgreSQL proof: PASS — disposable PostgreSQL 16 container, migration up, expected normalized-index state, migration revert, rollback state, and forced container removal all passed.
 
 ## Scope Notes
 
 - Archive visibility/filter and restore behavior remain unimplemented for later authorized slices.
 - Existing JWT transport, ADMIN guards, Phase 0 error handling, boolean `active`, and deterministic list ordering were preserved.
-- Next work unit: 2.1. It may begin only after PR 1 is established as the parent boundary in a fresh child branch/worktree.
+- Tasks 2.1 and 2.2 are complete with correction evidence distinct from the failed shared-volume attempt; the next authorized work unit is PR 3.

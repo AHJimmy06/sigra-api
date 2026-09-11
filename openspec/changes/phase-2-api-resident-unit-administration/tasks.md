@@ -25,8 +25,8 @@ Chain strategy: feature-branch-chain
 
 ## Phase 2: Unit Identity and Invariants (PR 2)
 
-- [ ] 2.1 RED: test normalized collisions, deactivation, concurrency, lock order in `src/units/units.service.spec.ts`, `src/migrations/1724600005000-HardenUnitIdentity.spec.ts`.
-- [ ] 2.2 GREEN: create `src/migrations/1724600005000-HardenUnitIdentity.ts`; update `src/units/unit.entity.ts`, `src/units/units.service.ts`, `src/config/typeorm.datasource.ts`; evidence: tests/up-down pass; revert these before resident migration.
+- [x] 2.1 RED: test normalized collisions, deactivation, concurrency, lock order in `src/units/units.service.spec.ts`, `src/migrations/1724600005000-HardenUnitIdentity.spec.ts`.
+- [x] 2.2 GREEN: create `src/migrations/1724600005000-HardenUnitIdentity.ts`; update `src/units/unit.entity.ts`, `src/units/units.service.ts`, `src/config/typeorm.datasource.ts`; evidence: tests/up-down pass; revert these before resident migration.
 
 ## Phase 3: Resident Identity and Invariants (PR 3)
 

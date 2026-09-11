@@ -9,7 +9,7 @@ import {
 @Entity('units')
 export class ResidentialUnit {
   @PrimaryGeneratedColumn('uuid') id!: string;
-  @Column({ unique: true }) code!: string;
+  @Column() code!: string;
   @Column() address!: string;
   @Column({ name: 'parking_spaces', type: 'int', default: 0 })
   parkingSpaces!: number;

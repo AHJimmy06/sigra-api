@@ -40,6 +40,40 @@ describe('UnitsService', () => {
     );
   });
 
+  it('canonicalizes code boundaries before preflighting and persisting a unit', async () => {
+    const unit = { id: 'unit-1', code: 'a-101' } as ResidentialUnit;
+    const repository = {
+      exists: jest.fn().mockResolvedValue(false),
+      create: jest.fn().mockReturnValue(unit),
+      save: jest.fn().mockResolvedValue(unit),
+    };
+    const manager = { getRepository: jest.fn().mockReturnValue(repository) };
+    const dataSource = {
+      transaction: jest.fn((work: (value: typeof manager) => unknown) =>
+        work(manager),
+      ),
+    };
+    const service = new UnitsService(
+      {} as never,
+      dataSource as never,
+      { record: jest.fn().mockResolvedValue(undefined) } as never,
+    );
+
+    await service.create(
+      { code: ' A-101 ', address: '101 Main Street', parkingSpaces: 2 },
+      actor,
+    );
+
+    expect(repository.exists).toHaveBeenCalledWith({
+      where: { code: 'a-101' },
+    });
+    expect(repository.create).toHaveBeenCalledWith({
+      code: 'a-101',
+      address: '101 Main Street',
+      parkingSpaces: 2,
+    });
+  });
+
   it('loads an ADMIN detail with only the safe unit fields', async () => {
     const unit = {
       id: 'unit-1',
@@ -91,6 +125,51 @@ describe('UnitsService', () => {
     await expect(
       service.update(unit.id, { active: false }, actor),
     ).rejects.toBeInstanceOf(ConflictException);
+    expect(unitRepository.findOne).toHaveBeenCalledWith({
+      where: { id: unit.id },
+      lock: { mode: 'pessimistic_write' },
+    });
+  });
+
+  it('locks then deactivates a unit when only inactive residents remain linked', async () => {
+    const unit = { id: 'unit-1', active: true } as ResidentialUnit;
+    const saved = { ...unit, active: false } as ResidentialUnit;
+    const unitRepository = {
+      findOne: jest.fn().mockResolvedValue(unit),
+      merge: jest.fn().mockReturnValue(saved),
+      save: jest.fn().mockResolvedValue(saved),
+    };
+    const residentRepository = { count: jest.fn().mockResolvedValue(0) };
+    const manager = {
+      getRepository: jest.fn(
+        (entity: typeof ResidentialUnit | typeof Resident) =>
+          entity === ResidentialUnit ? unitRepository : residentRepository,
+      ),
+    };
+    const audit = { record: jest.fn().mockResolvedValue(undefined) };
+    const dataSource = {
+      transaction: jest.fn((work: (value: typeof manager) => unknown) =>
+        work(manager),
+      ),
+    };
+    const service = new UnitsService(
+      {} as never,
+      dataSource as never,
+      audit as never,
+    );
+
+    await expect(
+      service.update(unit.id, { active: false }, actor),
+    ).resolves.toBe(saved);
+
+    expect(residentRepository.count).toHaveBeenCalledWith({
+      where: { unitId: unit.id, active: true },
+    });
+    expect(unitRepository.save).toHaveBeenCalledWith(saved);
+    expect(audit.record).toHaveBeenCalledWith(
+      manager,
+      expect.objectContaining({ action: 'UNIT_DEACTIVATED' }),
+    );
   });
 
   it('translates a concurrent update code collision to conflict', async () => {
