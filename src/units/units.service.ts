@@ -8,7 +8,12 @@ import { DataSource, Repository } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
 import { AuthUser } from '../auth/auth.types';
 import { Resident } from '../residents/resident.entity';
-import { CreateUnitDto, UpdateUnitDto } from './unit.dto';
+import {
+  CreateUnitDto,
+  mapUnitResponse,
+  normalizeUnitInput,
+  UpdateUnitDto,
+} from './unit.dto';
 import { ResidentialUnit } from './unit.entity';
 
 @Injectable()
@@ -45,10 +50,17 @@ export class UnitsService {
       .skip((page - 1) * pageSize)
       .take(pageSize);
     const [items, total] = await query.getManyAndCount();
-    return { items, total, page, pageSize };
+    return { items: items.map(mapUnitResponse), total, page, pageSize };
+  }
+
+  async findOne(id: string) {
+    const unit = await this.unitRepository.findOne({ where: { id } });
+    if (!unit) throw new NotFoundException('Unit not found');
+    return mapUnitResponse(unit);
   }
 
   async create(dto: CreateUnitDto, actor: AuthUser) {
+    dto = normalizeUnitInput(dto);
     try {
       return await this.dataSource.transaction(async (manager) => {
         const units = manager.getRepository(ResidentialUnit);
@@ -73,6 +85,7 @@ export class UnitsService {
   }
 
   async update(id: string, dto: UpdateUnitDto, actor: AuthUser) {
+    dto = normalizeUnitInput(dto);
     try {
       return await this.dataSource.transaction(async (manager) => {
         const units = manager.getRepository(ResidentialUnit);

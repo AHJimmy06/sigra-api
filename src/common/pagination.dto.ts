@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsIn,
   IsInt,
@@ -27,6 +27,7 @@ export class PageQueryDto {
 
 export class PaginationQueryDto extends PageQueryDto {
   @IsOptional()
+  @Transform(({ value }) => normalizeSearch(value))
   @IsString()
   @MaxLength(160)
   search?: string;
@@ -42,4 +43,8 @@ export class ResidentPaginationQueryDto extends ActivePaginationQueryDto {
   @IsOptional()
   @IsUUID()
   unitId?: string;
+}
+
+export function normalizeSearch(value: unknown) {
+  return typeof value === 'string' ? value.trim() : value;
 }

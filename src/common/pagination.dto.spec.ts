@@ -1,7 +1,8 @@
 import 'reflect-metadata';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { PaginationQueryDto } from './pagination.dto';
+import { PaginationQueryDto, normalizeSearch } from './pagination.dto';
+import { NonEmptyPatchPipe } from './non-empty-patch.pipe';
 
 describe('PaginationQueryDto', () => {
   it('applies stable defaults and transforms valid numeric input', async () => {
@@ -27,5 +28,20 @@ describe('PaginationQueryDto', () => {
     await expect(
       validate(plainToInstance(PaginationQueryDto, value)),
     ).resolves.not.toHaveLength(0);
+  });
+
+  it('trims a search boundary while preserving its searchable content', () => {
+    expect(normalizeSearch('  A-101  ')).toBe('A-101');
+    expect(normalizeSearch('  Ana Garcia  ')).toBe('Ana Garcia');
+  });
+
+  it('rejects an empty PATCH body but accepts a boolean active update', () => {
+    const pipe = new NonEmptyPatchPipe();
+    expect(() => pipe.transform({}, {} as never)).toThrow(
+      'PATCH body must include at least one field',
+    );
+    expect(pipe.transform({ active: false }, {} as never)).toEqual({
+      active: false,
+    });
   });
 });

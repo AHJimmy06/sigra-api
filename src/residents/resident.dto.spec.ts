@@ -1,6 +1,11 @@
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { CreateResidentDto, UpdateResidentDto } from './resident.dto';
+import {
+  CreateResidentDto,
+  mapResidentResponse,
+  normalizeResidentInput,
+  UpdateResidentDto,
+} from './resident.dto';
 
 describe('resident phone contract', () => {
   it.each(['+593 300 123 4567', '+1 (555) 123-4567 ext. 4', '099 123 4567'])(
@@ -27,4 +32,68 @@ describe('resident phone contract', () => {
       expect(errors[0]?.property).toBe('phone');
     },
   );
+});
+
+describe('resident response contract', () => {
+  it('normalizes boundary whitespace and email casing without changing active', () => {
+    expect(
+      normalizeResidentInput({
+        name: '  Ana Garcia  ',
+        email: ' ANA@EXAMPLE.COM ',
+        phone: ' 099 123 4567 ',
+        active: false,
+      }),
+    ).toEqual({
+      name: 'Ana Garcia',
+      email: 'ana@example.com',
+      phone: '099 123 4567',
+      active: false,
+    });
+  });
+
+  it('allowlists the resident and unit projections without identity secrets', () => {
+    expect(
+      mapResidentResponse({
+        id: 'resident-1',
+        name: 'Ana Garcia',
+        phone: null,
+        active: true,
+        unitId: 'unit-1',
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+        passwordHash: 'must-not-leak',
+        role: 'ADMIN',
+        unit: {
+          id: 'unit-1',
+          code: 'A-101',
+          address: '101 Main Street',
+          parkingSpaces: 2,
+          active: false,
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+          updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+          residents: [{ passwordHash: 'must-not-leak' }],
+        },
+      } as never,
+      'ana@example.com',
+    ),
+    ).toEqual({
+      id: 'resident-1',
+      name: 'Ana Garcia',
+      email: 'ana@example.com',
+      phone: null,
+      active: true,
+      unitId: 'unit-1',
+      unit: {
+        id: 'unit-1',
+        code: 'A-101',
+        address: '101 Main Street',
+        parkingSpaces: 2,
+        active: false,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-02T00:00:00.000Z',
+      },
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-02T00:00:00.000Z',
+    });
+  });
 });

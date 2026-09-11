@@ -10,6 +10,7 @@ import {
   Patch,
   Post,
   Query,
+  UsePipes,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -27,6 +28,7 @@ import { ResidentsService } from './residents.service';
 import type { AuthUser } from '../auth/auth.types';
 import { CurrentUser } from '../common/current-user.decorator';
 import { ResidentPaginationQueryDto } from '../common/pagination.dto';
+import { NonEmptyPatchPipe } from '../common/non-empty-patch.pipe';
 import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
 
 @Controller('residents')
@@ -41,6 +43,12 @@ export class ResidentsController {
     return this.residentsService.list(query);
   }
 
+  @Get(':id')
+  @ApiOkResponse({ type: ResidentResponseDto })
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
+    return this.residentsService.findOne(id);
+  }
+
   @Post()
   @HttpCode(HttpStatus.CREATED) // Código HTTP 201
   @ApiCreatedResponse({ type: ResidentResponseDto })
@@ -49,6 +57,7 @@ export class ResidentsController {
   }
 
   @Patch(':id')
+  @UsePipes(NonEmptyPatchPipe)
   @ApiOkResponse({ type: ResidentUpdateResponseDto })
   update(
     @Param('id', ParseUUIDPipe) id: string,

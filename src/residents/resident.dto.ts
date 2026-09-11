@@ -10,6 +10,27 @@ import {
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
+type ResidentProjection = {
+  id: string;
+  name: string;
+  phone: string | null;
+  active: boolean;
+  unitId: string;
+  createdAt: Date;
+  updatedAt: Date;
+  unit: UnitProjection;
+};
+
+type UnitProjection = {
+  id: string;
+  code: string;
+  address: string;
+  parkingSpaces: number;
+  active: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 export class CreateResidentDto {
   @IsString() @MinLength(3) @MaxLength(100) name!: string;
   @IsOptional()
@@ -75,4 +96,35 @@ export class PaginatedResidentsResponseDto {
   @ApiProperty() total!: number;
   @ApiProperty() page!: number;
   @ApiProperty() pageSize!: number;
+}
+
+export function normalizeResidentInput<T extends object>(input: T): T {
+  const normalized = { ...input } as Record<string, unknown>;
+  for (const field of ['name', 'phone']) {
+    if (typeof normalized[field] === 'string') normalized[field] = normalized[field].trim();
+  }
+  if (typeof normalized.email === 'string') normalized.email = normalized.email.trim().toLowerCase();
+  return normalized as T;
+}
+
+export function mapResidentResponse(resident: ResidentProjection, email: string | undefined): ResidentResponseDto {
+  return {
+    id: resident.id,
+    name: resident.name,
+    email: email as string,
+    phone: resident.phone,
+    active: resident.active,
+    unitId: resident.unitId,
+    unit: {
+      id: resident.unit.id,
+      code: resident.unit.code,
+      address: resident.unit.address,
+      parkingSpaces: resident.unit.parkingSpaces,
+      active: resident.unit.active,
+      createdAt: resident.unit.createdAt.toISOString(),
+      updatedAt: resident.unit.updatedAt.toISOString(),
+    },
+    createdAt: resident.createdAt.toISOString(),
+    updatedAt: resident.updatedAt.toISOString(),
+  };
 }

@@ -40,6 +40,33 @@ describe('UnitsService', () => {
     );
   });
 
+  it('loads an ADMIN detail with only the safe unit fields', async () => {
+    const unit = {
+      id: 'unit-1',
+      code: 'A-101',
+      address: '101 Main Street',
+      parkingSpaces: 2,
+      active: true,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+    } as ResidentialUnit;
+    const service = new UnitsService(
+      { findOne: jest.fn().mockResolvedValue(unit) } as never,
+      {} as never,
+      {} as never,
+    );
+
+    await expect(service.findOne(unit.id)).resolves.toEqual({
+      id: 'unit-1',
+      code: 'A-101',
+      address: '101 Main Street',
+      parkingSpaces: 2,
+      active: true,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-02T00:00:00.000Z',
+    });
+  });
+
   it('rejects deactivation while active residents remain linked', async () => {
     const unit = { id: 'unit-1', active: true } as ResidentialUnit;
     const unitRepository = { findOne: jest.fn().mockResolvedValue(unit) };

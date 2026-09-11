@@ -10,6 +10,7 @@ import {
   Patch,
   Post,
   Query,
+  UsePipes,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -26,6 +27,7 @@ import { UnitsService } from './units.service';
 import type { AuthUser } from '../auth/auth.types';
 import { CurrentUser } from '../common/current-user.decorator';
 import { ActivePaginationQueryDto } from '../common/pagination.dto';
+import { NonEmptyPatchPipe } from '../common/non-empty-patch.pipe';
 import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
 
 @Controller('units')
@@ -40,6 +42,12 @@ export class UnitsController {
     return this.unitsService.list(query);
   }
 
+  @Get(':id')
+  @ApiOkResponse({ type: UnitResponseDto })
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
+    return this.unitsService.findOne(id);
+  }
+
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiCreatedResponse({ type: UnitResponseDto })
@@ -48,6 +56,7 @@ export class UnitsController {
   }
 
   @Patch(':id')
+  @UsePipes(NonEmptyPatchPipe)
   @ApiOkResponse({ type: UnitResponseDto })
   update(
     @Param('id', ParseUUIDPipe) id: string,

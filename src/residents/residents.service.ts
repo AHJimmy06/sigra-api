@@ -11,7 +11,12 @@ import { AuthUser } from '../auth/auth.types';
 import { Role } from '../common/role.enum';
 import { ResidentialUnit } from '../units/unit.entity';
 import { User } from '../users/user.entity';
-import { CreateResidentDto, UpdateResidentDto } from './resident.dto';
+import {
+  CreateResidentDto,
+  mapResidentResponse,
+  normalizeResidentInput,
+  UpdateResidentDto,
+} from './resident.dto';
 import { Resident } from './resident.entity';
 
 @Injectable()
@@ -61,16 +66,26 @@ export class ResidentsService {
       .getRawAndEntities();
     const items = result.entities.map((resident, index) => {
       const raw = result.raw[index] as Record<string, unknown> | undefined;
-      return {
-        ...resident,
-        email: typeof raw?.user_email === 'string' ? raw.user_email : undefined,
-      };
+      return mapResidentResponse(
+        resident,
+        typeof raw?.user_email === 'string' ? raw.user_email : undefined,
+      );
     });
     return { items, total, page, pageSize };
   }
 
+  async findOne(id: string) {
+    const resident = await this.residentRepository.findOne({ where: { id } });
+    if (!resident) throw new NotFoundException('Resident not found');
+    const user = await this.dataSource
+      .getRepository(User)
+      .findOne({ where: { residentId: id }, select: { email: true } });
+    return mapResidentResponse(resident, user?.email);
+  }
+
   async create(dto: CreateResidentDto, actor: AuthUser) {
-    const email = dto.email.trim().toLowerCase();
+    dto = normalizeResidentInput(dto);
+    const email = dto.email;
     try {
       return await this.dataSource.transaction(async (manager) => {
         const units = manager.getRepository(ResidentialUnit);
@@ -118,6 +133,7 @@ export class ResidentsService {
   }
 
   async update(id: string, dto: UpdateResidentDto, actor: AuthUser) {
+    dto = normalizeResidentInput(dto);
     if (dto.unitId) {
       const unit = await this.unitRepository.findOne({
         where: { id: dto.unitId, active: true },

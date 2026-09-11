@@ -27,7 +27,21 @@ describe('ResidentsService', () => {
         entities: [
           {
             id: 'resident-1',
-            unit: { id: 'unit-1', code: 'A-101', active: true },
+            name: 'Ana Garcia',
+            phone: null,
+            active: true,
+            unitId: 'unit-1',
+            createdAt: new Date('2026-01-01T00:00:00.000Z'),
+            updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+            unit: {
+              id: 'unit-1',
+              code: 'A-101',
+              address: '101 Main Street',
+              parkingSpaces: 2,
+              active: true,
+              createdAt: new Date('2026-01-01T00:00:00.000Z'),
+              updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+            },
           },
         ],
         raw: [{ user_email: 'resident@example.com' }],
@@ -35,8 +49,11 @@ describe('ResidentsService', () => {
     };
     const service = new ResidentsService(
       { createQueryBuilder: jest.fn().mockReturnValue(query) } as never,
-      {} as never,
-      {} as never,
+      {
+        getRepository: jest.fn().mockReturnValue({
+          findOne: jest.fn().mockResolvedValue({ email: 'ana@example.com' }),
+        }),
+      } as never,
       {} as never,
     );
 
@@ -48,6 +65,50 @@ describe('ResidentsService', () => {
       'resident.unit',
       'unit',
     );
+  });
+
+  it('loads an ADMIN detail with only the safe resident and unit fields', async () => {
+    const resident = {
+      id: 'resident-1',
+      name: 'Ana Garcia',
+      phone: null,
+      active: true,
+      unitId: 'unit-1',
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+      unit: {
+        id: 'unit-1',
+        code: 'A-101',
+        address: '101 Main Street',
+        parkingSpaces: 2,
+        active: true,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+      },
+    } as Resident;
+    const service = new ResidentsService(
+      { findOne: jest.fn().mockResolvedValue(resident) } as never,
+      {} as never,
+      {
+        getRepository: jest.fn().mockReturnValue({
+          findOne: jest.fn().mockResolvedValue({ email: 'ana@example.com' }),
+        }),
+      } as never,
+      {} as never,
+      {} as never,
+    );
+
+    await expect(service.findOne(resident.id)).resolves.toEqual({
+      id: 'resident-1',
+      name: 'Ana Garcia',
+      email: 'ana@example.com',
+      phone: null,
+      active: true,
+      unitId: 'unit-1',
+      unit: expect.objectContaining({ id: 'unit-1', code: 'A-101' }),
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-02T00:00:00.000Z',
+    });
   });
 
   it('creates a resident account transactionally without exposing the password hash', async () => {
