@@ -1,0 +1,53 @@
+schema: gentle-ai.sdd-preproposal/v1
+revision: 4
+change: phase-1-api-session-foundation
+artifact_store: openspec
+skill_resolution: paths-injected
+scope:
+  included:
+    - sigra-api
+  excluded:
+    - sigra-web
+    - sigra-movil
+exploration:
+  outcome: completed
+  reference: openspec/changes/phase-1-api-session-foundation/exploration.md
+research:
+  selected: false
+  selection_decision:
+    outcome: inherited_explicit_decline
+    actor: user
+    source: phase_1_decision
+    rationale: Continue without external research.
+  historical_context:
+    authoritative: false
+product_decisions:
+  status: confirmed
+  inheritance: relevant_umbrella_choices_only
+  confirmed:
+    - "Session context: access token lifetime is 15 minutes; renewable session absolute lifetime is 30 days."
+    - "Refresh reuse: strict no-grace policy."
+    - "Idempotency: same-operation retries are visible to and reconciled by the server."
+    - "Cryptography: HMAC and HKDF use versioned, dedicated keys."
+    - "Delivery: use a feature branch chain targeting develop."
+    - "Change sizing: split before apply at 400 lines."
+    - "Ownership boundary: the foundation owns no endpoint, cookie, password-reset, or SMTP behavior."
+    - "Validated design decision: foundation is a non-implementing umbrella split into schema then primitives API-only children."
+decomposition:
+  parent_apply: prohibited
+  authoritative_spec: specs/api-session-foundation/spec.md
+  children:
+    - change: phase-1-api-session-schema
+      scope: entities, exact PostgreSQL schema/constraints/indexes, reversible migration, datasource registration, metadata parity tests
+      target_changed_lines: 160-240
+    - change: phase-1-api-session-primitives
+      depends_on: phase-1-api-session-schema
+      scope: manager-aware repositories/locking/classification/cleanup, versioned HMAC/HKDF primitives/config, Nest wiring, tests
+      target_changed_lines: 220-320
+      split_before_apply_at_changed_lines: 400
+design_ready: true
+status: validated
+validation_result: pass
+proposal_ready: false
+blocked_reason: null
+next_recommended: sdd-tasks
