@@ -21,12 +21,12 @@ import {
   CreateUnitDto,
   PaginatedUnitsResponseDto,
   UnitResponseDto,
+  UnitPaginationQueryDto,
   UpdateUnitDto,
 } from './unit.dto';
 import { UnitsService } from './units.service';
 import type { AuthUser } from '../auth/auth.types';
 import { CurrentUser } from '../common/current-user.decorator';
-import { ActivePaginationQueryDto } from '../common/pagination.dto';
 import { NonEmptyPatchPipe } from '../common/non-empty-patch.pipe';
 import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
 
@@ -38,14 +38,17 @@ export class UnitsController {
 
   @Get()
   @ApiOkResponse({ type: PaginatedUnitsResponseDto })
-  list(@Query() query: ActivePaginationQueryDto) {
+  list(@Query() query: UnitPaginationQueryDto) {
     return this.unitsService.list(query);
   }
 
   @Get(':id')
   @ApiOkResponse({ type: UnitResponseDto })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.unitsService.findOne(id);
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: UnitPaginationQueryDto,
+  ) {
+    return this.unitsService.findOne(id, query.includeArchived);
   }
 
   @Post()
@@ -64,6 +67,24 @@ export class UnitsController {
     @CurrentUser() user: AuthUser,
   ) {
     return this.unitsService.update(id, dto, user);
+  }
+
+  @Post(':id/archive')
+  @ApiOkResponse({ type: UnitResponseDto })
+  archive(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.unitsService.archive(id, user);
+  }
+
+  @Post(':id/restore')
+  @ApiOkResponse({ type: UnitResponseDto })
+  restore(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.unitsService.restore(id, user);
   }
 
   @Delete(':id')

@@ -5,6 +5,8 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
+import { IsNull } from 'typeorm';
+import { AccessEvent } from '../access/access-event.entity';
 import { AuditService } from '../audit/audit.service';
 import { AuthUser } from '../auth/auth.types';
 import { Resident } from '../residents/resident.entity';
@@ -30,9 +32,11 @@ export class UnitsService {
     pageSize: number;
     search?: string;
     status?: string;
+    includeArchived?: 'true' | 'false';
   }) {
-    const { page, pageSize, search, status } = params;
+    const { page, pageSize, search, status, includeArchived } = params;
     const query = this.unitRepository.createQueryBuilder('unit');
+    if (includeArchived !== 'true') query.andWhere('unit.archivedAt IS NULL');
     if (search) {
       query.andWhere(
         '(unit.code ILIKE :search OR unit.address ILIKE :search)',
@@ -53,8 +57,10 @@ export class UnitsService {
     return { items: items.map(mapUnitResponse), total, page, pageSize };
   }
 
-  async findOne(id: string) {
-    const unit = await this.unitRepository.findOne({ where: { id } });
+  async findOne(id: string, includeArchived?: 'true' | 'false') {
+    const unit = await this.unitRepository.findOne({
+      where: includeArchived === 'true' ? { id } : { id, archivedAt: IsNull() },
+    });
     if (!unit) throw new NotFoundException('Unit not found');
     return mapUnitResponse(unit);
   }
@@ -135,6 +141,61 @@ export class UnitsService {
 
   async remove(id: string, actor: AuthUser) {
     await this.update(id, { active: false }, actor);
+  }
+
+  async archive(id: string, actor: AuthUser) {
+    return this.dataSource.transaction(async (manager) => {
+      const units = manager.getRepository(ResidentialUnit);
+      const unit = await units.findOne({
+        where: { id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!unit) throw new NotFoundException('Unit not found');
+      if (unit.archivedAt) return mapUnitResponse(unit);
+
+      const [residentCount, eventCount] = await Promise.all([
+        manager.getRepository(Resident).count({ where: { unitId: id } }),
+        manager.getRepository(AccessEvent).count({ where: { unitId: id } }),
+      ]);
+      if (residentCount || eventCount) {
+        throw new ConflictException(
+          'Unit cannot be archived while dependencies are retained',
+        );
+      }
+      unit.archivedAt = new Date();
+      unit.archivedByUserId = actor.sub;
+      const saved = await units.save(unit);
+      await this.audit.record(manager, {
+        actor,
+        action: 'UNIT_ARCHIVED',
+        resourceType: 'UNIT',
+        resourceId: id,
+      });
+      return mapUnitResponse(saved);
+    });
+  }
+
+  async restore(id: string, actor: AuthUser) {
+    return this.dataSource.transaction(async (manager) => {
+      const units = manager.getRepository(ResidentialUnit);
+      const unit = await units.findOne({
+        where: { id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!unit) throw new NotFoundException('Unit not found');
+      if (!unit.archivedAt) return mapUnitResponse(unit);
+
+      unit.archivedAt = null;
+      unit.archivedByUserId = null;
+      const saved = await units.save(unit);
+      await this.audit.record(manager, {
+        actor,
+        action: 'UNIT_RESTORED',
+        resourceType: 'UNIT',
+        resourceId: id,
+      });
+      return mapUnitResponse(saved);
+    });
   }
 }
 

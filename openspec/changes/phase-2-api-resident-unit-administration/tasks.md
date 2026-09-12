@@ -35,8 +35,8 @@ Chain strategy: feature-branch-chain
 
 ## Phase 4: Unit Archive Lifecycle (PR 4)
 
-- [ ] 4.1 RED: test archive visibility/filter, dependencies, `active`, reserved code, audit, no-op, and restore in `src/units/units.service.spec.ts`, `src/migrations/1724600007000-AddUnitArchiveMetadata.spec.ts`.
-- [ ] 4.2 GREEN: create `src/migrations/1724600007000-AddUnitArchiveMetadata.ts`; update `src/units/unit.entity.ts`, `src/units/units.service.ts`, `src/units/units.controller.ts`, `src/config/typeorm.datasource.ts` for archive metadata and visibility; evidence: `npm test -- --runInBand units` and PostgreSQL migration checks pass; disable writes, restore records, revert app/migration.
+- [x] 4.1 RED: test archive visibility/filter, dependencies, `active`, reserved code, audit, no-op, and restore in `src/units/units.service.spec.ts`, `src/migrations/1724600007000-AddUnitArchiveMetadata.spec.ts`.
+- [x] 4.2 GREEN: create `src/migrations/1724600007000-AddUnitArchiveMetadata.ts`; update `src/units/unit.entity.ts`, `src/units/units.service.ts`, `src/units/units.controller.ts`, `src/config/typeorm.datasource.ts` for archive metadata and visibility; evidence: `npm test -- --runInBand units` and PostgreSQL migration checks pass; disable writes, restore records, revert app/migration.
 
 ## Phase 5: Resident Archive Lifecycle (PR 5)
 

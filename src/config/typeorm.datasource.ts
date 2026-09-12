@@ -7,6 +7,7 @@ import { EnforceUnitParkingLimit1724600003000 } from '../migrations/172460000300
 import { AddAuthSessionSchema1724600004000 } from '../migrations/1724600004000-AddAuthSessionSchema';
 import { HardenUnitIdentity1724600005000 } from '../migrations/1724600005000-HardenUnitIdentity';
 import { HardenResidentIdentity1724600006000 } from '../migrations/1724600006000-HardenResidentIdentity';
+import { AddUnitArchiveMetadata1724600007000 } from '../migrations/1724600007000-AddUnitArchiveMetadata';
 
 export default new DataSource({
   type: 'postgres',
@@ -24,6 +25,7 @@ export default new DataSource({
     AddAuthSessionSchema1724600004000,
     HardenUnitIdentity1724600005000,
     HardenResidentIdentity1724600006000,
+    AddUnitArchiveMetadata1724600007000,
   ],
   synchronize: false,
 });

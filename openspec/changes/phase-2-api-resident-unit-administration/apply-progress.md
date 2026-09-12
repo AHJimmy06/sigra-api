@@ -8,7 +8,7 @@
 - Native attempt token: `sha256:e66e9cd67bcd804e04804ec5f14d3e9f173141f0acd5a803aa250a73ebc140de`
 - Native risk assessment: Medium. RDD: off.
 - PR 2 `pr2-unit-identity-and-invariants` is complete. The isolated disposable PostgreSQL proof passed migration up, normalized-index inspection, migration revert, rollback inspection, and container cleanup.
-- Cumulative settled state: PR 1 and PR 2 history is preserved; PR 3 `pr3-resident-identity-and-invariants` is settled under parent-retained native attempt token `sha256:6814ae2c746dde3c25ea7cfce15e88ff514779dc4ee3c9c396748f1d870f1e25` with settlement revision `sha256:ac87ceada1342808f8bd26d37f991dc82a963a6772fb441d0ec77b96e814f16a`.
+- Cumulative settled state: PR 1 and PR 2 history is preserved; PR 3 `pr3-resident-identity-and-invariants` is settled under parent-retained native attempt token `sha256:6814ae2c746dde3c25ea7cfce15e88ff514779dc4ee3c9c396748f1d870f1e25` with settlement revision `sha256:ac87ceada1342808f8bd26d37f991dc82a963a6772fb441d0ec77b96e814f16a`; PR 4 `pr4-unit-archive-lifecycle` is settled under parent-retained native attempt token `sha256:b36d7a9546a53c7b070b4b43e4fb0d4f7ce38456b8f4931beced5352ff621780` with settlement revision `sha256:6c498cabd68da57d8ec555d1d565c127b6742ba7d8268b9eae7903393bfe50ca`.
 - Remediation lineage: failed/remediated evidence revision `sha256:50a53bf47fa367a577b2986540a118397843ff13fbd9ca9f18410c882b4bcb86` is remediated by successful remediation settlement evidence revision `sha256:05fb1f36776c384e1a3b8ac71850cc48d048f758a8dc7b741e54ee1eeb44ec4c` under native attempt token `sha256:0c319179e88892d37044d8197e313aa039c3c806d5a9112918e20654f2708cba`; the old shared-volume credential failure remains historical evidence only.
 
 ## Task Completion
@@ -19,8 +19,8 @@
 - [x] 2.2 GREEN: unit identity and invariants.
 - [x] 3.1 RED: resident identity and invariants.
 - [x] 3.2 GREEN: resident identity and invariants.
-- [ ] 4.1 RED: unit archive lifecycle.
-- [ ] 4.2 GREEN: unit archive lifecycle.
+- [x] 4.1 RED: unit archive lifecycle.
+- [x] 4.2 GREEN: unit archive lifecycle.
 - [ ] 5.1 RED: resident archive lifecycle.
 - [ ] 5.2 GREEN: resident archive lifecycle.
 - [ ] 6.1 RED: acceptance and public contract.
@@ -69,9 +69,9 @@
 
 ## Scope Notes
 
-- Archive visibility/filter and restore behavior remain unimplemented for later authorized slices.
+- Unit archive/filter/restore is complete; resident archive remains pending.
 - Existing JWT transport, ADMIN guards, Phase 0 error handling, boolean `active`, and deterministic list ordering were preserved.
-- Tasks 1.1 through 3.2 are complete with verified evidence; the next authorized work unit is PR 4.
+- Tasks 1.1 through 4.2 are complete with verified evidence; the next authorized work unit is PR 5.
 
 ## Work Unit Evidence: PR 3 Resident Identity and Invariants
 
@@ -103,3 +103,33 @@
 - `git diff --check`: PASS.
 - Authored source/test change from parent boundary `ab832eb`: 343 lines (328 additions, 15 deletions); no generated files. This is within the 400-line maximum.
 - `npm ci`: PASS — installed 768 packages; dependency audit warnings were not changed by this work unit.
+
+## Work Unit Evidence: PR 4 Unit Archive Lifecycle
+
+### Status
+
+- Delivery strategy: `exception-ok`; chain strategy: `feature-branch-chain`.
+- Current work unit: `pr4-unit-archive-lifecycle`, parent boundary `b9b7044`; parent-retained native attempt token: `sha256:b36d7a9546a53c7b070b4b43e4fb0d4f7ce38456b8f4931beced5352ff621780`; settlement revision: `sha256:6c498cabd68da57d8ec555d1d565c127b6742ba7d8268b9eae7903393bfe50ca`.
+- Completed only tasks 4.1 and 4.2. Resident archive lifecycle and acceptance/OpenAPI remain out of scope.
+
+### TDD Cycle Evidence
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|---|---|---|---|---|---|---|---|
+| 4.1 | `src/units/units.service.spec.ts`, `src/migrations/1724600007000-AddUnitArchiveMetadata.spec.ts` | Unit + PostgreSQL migration contract | `npm test -- --runInBand units`: PASS — 2 suites, 8 tests after installing missing dependencies with `npm ci`. | FAIL — 2 suites; the archive migration module and `archive`/`restore` service methods were absent. | PASS — `npm test -- --runInBand units migrations`: 6 suites, 20 tests. | Added inactive/historical-resident and retained-access-event dependency branches, default/archive-explicit visibility, restore, and repeated no-op cases. | No behavior-changing refactor was needed; focused suite remained green. |
+| 4.2 | Same PR 4 focused test files | Unit + PostgreSQL migration contract | Same safety net; new migration files were N/A. | Same paired task-4.1 RED run. | PASS — migration registration, archive metadata, controller routes, visibility, transactional lifecycle, and audit behavior compile and pass. | Migration up/down verifies actor FK, metadata index, and removal; service tests verify state preservation and no writes on rejected/no-op transitions. | No behavior-changing refactor was needed; focused suite remained green. |
+
+### Work Unit Evidence
+
+| Evidence | Result |
+|---|---|
+| Focused test command and exact result | Parent-observed `npm test -- --runInBand units`: PASS — 2 suites, 13 tests. Expanded TDD focused command: `npm test -- --runInBand units migrations`: PASS — 6 suites, 20 tests. |
+| Runtime harness command/scenario and exact result | A uniquely named disposable PostgreSQL 16 container with no persistent volume ran all 8 migrations. Inspection returned `idx_units_archived_at`, `archived_at`, `archived_by_user_id`, and FK delete action `n` (`SET NULL`). `npm run migration:revert` reverted only `AddUnitArchiveMetadata1724600007000`; rollback inspection returned 0 archive columns and 0 archive indexes. The container was removed with `docker rm -f`; credentials were process-scoped and redacted. |
+| Build command and exact result | `npm run build`: PASS — Nest build completed. |
+| Rollback boundary | Disable archive writes, restore any archived units, then revert `1724600007000-AddUnitArchiveMetadata.ts`, its registration/spec, and the unit entity/DTO/service/controller/tests. This removes only unit archive behavior and preserves PR 1–3 contracts and identity invariants. |
+
+### Verification and Accounting: PR 4
+
+- `git diff --check`: PASS.
+- Authored source/test change: 263 lines; full patch: 300 lines.
+- An initial disposable container attempt omitted host port publishing, was removed immediately, and did not touch shared infrastructure; the succeeding proof above used host loopback port publishing only.

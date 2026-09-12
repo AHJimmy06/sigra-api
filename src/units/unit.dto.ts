@@ -1,5 +1,6 @@
 import {
   IsBoolean,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -9,6 +10,7 @@ import {
   Max,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { ActivePaginationQueryDto } from '../common/pagination.dto';
 
 type UnitProjection = {
   id: string;
@@ -16,6 +18,7 @@ type UnitProjection = {
   address: string;
   parkingSpaces: number;
   active: boolean;
+  archivedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -39,8 +42,13 @@ export class UnitResponseDto {
   @ApiProperty() address!: string;
   @ApiProperty() parkingSpaces!: number;
   @ApiProperty() active!: boolean;
+  @ApiProperty({ format: 'date-time', nullable: true }) archivedAt!: string | null;
   @ApiProperty({ format: 'date-time' }) createdAt!: string;
   @ApiProperty({ format: 'date-time' }) updatedAt!: string;
+}
+
+export class UnitPaginationQueryDto extends ActivePaginationQueryDto {
+  @IsOptional() @IsIn(['true', 'false']) includeArchived?: 'true' | 'false';
 }
 
 export class PaginatedUnitsResponseDto {
@@ -65,6 +73,7 @@ export function mapUnitResponse(unit: UnitProjection): UnitResponseDto {
     address: unit.address,
     parkingSpaces: unit.parkingSpaces,
     active: unit.active,
+    archivedAt: unit.archivedAt?.toISOString() ?? null,
     createdAt: unit.createdAt.toISOString(),
     updatedAt: unit.updatedAt.toISOString(),
   };
