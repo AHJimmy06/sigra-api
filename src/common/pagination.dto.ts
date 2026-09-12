@@ -43,6 +43,10 @@ export class ResidentPaginationQueryDto extends ActivePaginationQueryDto {
   @IsOptional()
   @IsUUID()
   unitId?: string;
+
+  @IsOptional()
+  @IsIn(['true', 'false'])
+  includeArchived?: 'true' | 'false';
 }
 
 export function normalizeSearch(value: unknown) {

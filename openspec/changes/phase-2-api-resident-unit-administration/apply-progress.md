@@ -8,7 +8,7 @@
 - Native attempt token: `sha256:e66e9cd67bcd804e04804ec5f14d3e9f173141f0acd5a803aa250a73ebc140de`
 - Native risk assessment: Medium. RDD: off.
 - PR 2 `pr2-unit-identity-and-invariants` is complete. The isolated disposable PostgreSQL proof passed migration up, normalized-index inspection, migration revert, rollback inspection, and container cleanup.
-- Cumulative settled state: PR 1 and PR 2 history is preserved; PR 3 `pr3-resident-identity-and-invariants` is settled under parent-retained native attempt token `sha256:6814ae2c746dde3c25ea7cfce15e88ff514779dc4ee3c9c396748f1d870f1e25` with settlement revision `sha256:ac87ceada1342808f8bd26d37f991dc82a963a6772fb441d0ec77b96e814f16a`; PR 4 `pr4-unit-archive-lifecycle` is settled under parent-retained native attempt token `sha256:b36d7a9546a53c7b070b4b43e4fb0d4f7ce38456b8f4931beced5352ff621780` with settlement revision `sha256:6c498cabd68da57d8ec555d1d565c127b6742ba7d8268b9eae7903393bfe50ca`.
+- Cumulative settled state: PR 1 and PR 2 history is preserved; PR 3 `pr3-resident-identity-and-invariants` is settled under parent-retained native attempt token `sha256:6814ae2c746dde3c25ea7cfce15e88ff514779dc4ee3c9c396748f1d870f1e25` with settlement revision `sha256:ac87ceada1342808f8bd26d37f991dc82a963a6772fb441d0ec77b96e814f16a`; PR 4 `pr4-unit-archive-lifecycle` is settled under parent-retained native attempt token `sha256:b36d7a9546a53c7b070b4b43e4fb0d4f7ce38456b8f4931beced5352ff621780` with settlement revision `sha256:6c498cabd68da57d8ec555d1d565c127b6742ba7d8268b9eae7903393bfe50ca`; PR 5 `pr5-resident-archive-lifecycle` is settled under parent-retained native attempt token `sha256:a07a6c1ee288039791798bd829bf1acf56fa7225c4c1e1dcf124885b31c7ac8e` with settlement revision `sha256:f5aae6af48209906c3a7a8bffc820823c5bcff523a809a16af8f67c00734ca0d`.
 - Remediation lineage: failed/remediated evidence revision `sha256:50a53bf47fa367a577b2986540a118397843ff13fbd9ca9f18410c882b4bcb86` is remediated by successful remediation settlement evidence revision `sha256:05fb1f36776c384e1a3b8ac71850cc48d048f758a8dc7b741e54ee1eeb44ec4c` under native attempt token `sha256:0c319179e88892d37044d8197e313aa039c3c806d5a9112918e20654f2708cba`; the old shared-volume credential failure remains historical evidence only.
 
 ## Task Completion
@@ -21,8 +21,8 @@
 - [x] 3.2 GREEN: resident identity and invariants.
 - [x] 4.1 RED: unit archive lifecycle.
 - [x] 4.2 GREEN: unit archive lifecycle.
-- [ ] 5.1 RED: resident archive lifecycle.
-- [ ] 5.2 GREEN: resident archive lifecycle.
+- [x] 5.1 RED: resident archive lifecycle.
+- [x] 5.2 GREEN: resident archive lifecycle.
 - [ ] 6.1 RED: acceptance and public contract.
 - [ ] 6.2 GREEN: acceptance and public contract.
 
@@ -69,9 +69,9 @@
 
 ## Scope Notes
 
-- Unit archive/filter/restore is complete; resident archive remains pending.
+- Unit and resident archive/filter/restore are complete.
 - Existing JWT transport, ADMIN guards, Phase 0 error handling, boolean `active`, and deterministic list ordering were preserved.
-- Tasks 1.1 through 4.2 are complete with verified evidence; the next authorized work unit is PR 5.
+- Tasks 1.1 through 5.2 are complete with verified evidence; the next authorized work unit is PR 6.
 
 ## Work Unit Evidence: PR 3 Resident Identity and Invariants
 
@@ -133,3 +133,44 @@
 - `git diff --check`: PASS.
 - Authored source/test change: 263 lines; full patch: 300 lines.
 - An initial disposable container attempt omitted host port publishing, was removed immediately, and did not touch shared infrastructure; the succeeding proof above used host loopback port publishing only.
+
+## Work Unit Evidence: PR 5 Resident Archive Lifecycle
+
+### Status
+
+- Delivery strategy: `exception-ok`; chain strategy: `feature-branch-chain`.
+- Current work unit: `pr5-resident-archive-lifecycle`, parent boundary `e4cca98`; parent-retained native attempt token: `sha256:a07a6c1ee288039791798bd829bf1acf56fa7225c4c1e1dcf124885b31c7ac8e`; settlement revision: `sha256:f5aae6af48209906c3a7a8bffc820823c5bcff523a809a16af8f67c00734ca0d`.
+- Completed only tasks 5.1 and 5.2. HTTP acceptance/OpenAPI work remains PR 6 scope.
+
+### TDD Cycle Evidence
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|---|---|---|---|---|---|---|---|
+| 5.1 | `src/residents/residents.service.spec.ts`, `src/migrations/1724600008000-AddResidentArchiveMetadata.spec.ts` | Unit + PostgreSQL migration contract | `npm test -- --runInBand residents migrations`: PASS — 6 suites, 27 tests after `npm ci`; the initial command was infrastructure-blocked because Jest was absent. | FAIL — 7 suites with 5 failing tests: the resident archive migration and `archive`/`restore` methods were absent, and default archive filtering was absent. | PASS — `npm test -- --runInBand residents migrations`: 7 suites, 34 tests after metadata, lifecycle, filtering, and safe mapper changes. | Archive transition, inactive restore conflict, archived/default visibility, independent `active=false`, and repeated archive/restore no-op branches are covered. | Returned archive/restore resources through the existing allowlisted mapper to keep `archivedByUserId` internal; focused tests remained green. |
+| 5.2 | Same PR 5 focused test files | Unit + PostgreSQL migration contract | Same 6-suite, 27-test safety net; new migration files were N/A. | Same paired task-5.1 RED run. | PASS — migration registration, entity mapping, ADMIN routes, unit-first locks, linked-user deactivation, restore preconditions, metadata visibility, audit transitions, and no-op behavior compile and pass. | Migration tests cover up/down actor FK and index removal; service tests cover archive, conflicts, no-op, safe response, and filter/state separation. | No further behavior-changing refactor was needed; `npm run build` and focused tests remained green. |
+
+### Work Unit Evidence
+
+| Evidence | Result |
+|---|---|
+| Focused test command and exact result | Parent-observed `npm test -- --runInBand residents`: PASS — 2 suites, 23 tests. Expanded command: `npm test -- --runInBand residents migrations`: PASS — 7 suites, 34 tests. |
+| Runtime harness command/scenario and exact result | A uniquely named disposable PostgreSQL 16 container with no persistent volume ran all 9 migrations successfully. Inspection returned `archived_at`, `archived_by_user_id`, `idx_residents_archived_at`, and `fk_residents_archived_by_user|n` (`SET NULL`). `npm run migration:revert` reverted `AddResidentArchiveMetadata1724600008000`; rollback inspection returned `0`, `0`, `0` for archive columns, index, and FK. Each container was removed with `docker rm -f`; credentials were process-scoped and redacted. |
+| Build command and exact result | `npm run build`: PASS — Nest build completed. |
+| Rollback boundary | Disable resident archive writes, restore archived residents, then revert `1724600008000-AddResidentArchiveMetadata.ts`, its registration/spec, and the resident entity/DTO/service/controller/tests. This removes only resident archive behavior and preserves PR 1–4 contracts, normalized identity, locks, and unit archival. |
+
+### Verification and Accounting: PR 5
+
+- `git diff --check`: PASS.
+- PR 5 source/test authored change: 339 lines; full patch: 375 lines.
+- No commit, push, or PR was created.
+- Final HTTP acceptance and OpenAPI artifacts remain deliberately deferred to PR 6.
+
+### Focused Correction: Restore Preserves Inactive State
+
+- Scope remained within completed task 5.2: successful resident restore now explicitly persists `active=false` for both the resident and its linked user while clearing archive metadata. Repeated restore remains an audit-free, write-free no-op.
+- TDD safety net: `npm test -- --runInBand residents` PASS — 2 suites, 23 tests.
+- RED: the new successful-restore regression failed because the restored resident remained active (`expected false, received true`).
+- GREEN: `npm test -- --runInBand residents` PASS — 2 suites, 24 tests after the minimal service correction.
+- Triangulation: the new drifted-active successful transition and the existing non-archived restore no-op cover the write and no-write paths; no refactor was needed.
+- Rollback boundary: revert only the focused restore regression in `src/residents/residents.service.spec.ts` and inactive assignments/save in `src/residents/residents.service.ts`.
+- Native attempt token remains retained by the parent: `sha256:f6577c4eb3e238ee46f88b1e74220e827d2623ad6f331093bfcf3b46087098ff`; this correction did not acquire or settle it.

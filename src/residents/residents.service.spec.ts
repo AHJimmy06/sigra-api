@@ -18,6 +18,7 @@ describe('ResidentsService', () => {
       leftJoinAndSelect: jest.fn().mockReturnThis(),
       leftJoin: jest.fn().mockReturnThis(),
       addSelect: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
       getCount: jest.fn().mockResolvedValue(1),
       orderBy: jest.fn().mockReturnThis(),
       addOrderBy: jest.fn().mockReturnThis(),
@@ -73,6 +74,7 @@ describe('ResidentsService', () => {
       name: 'Ana Garcia',
       phone: null,
       active: true,
+      archivedAt: null,
       unitId: 'unit-1',
       createdAt: new Date('2026-01-01T00:00:00.000Z'),
       updatedAt: new Date('2026-01-02T00:00:00.000Z'),
@@ -104,6 +106,7 @@ describe('ResidentsService', () => {
       email: 'ana@example.com',
       phone: null,
       active: true,
+      archivedAt: null,
       unitId: 'unit-1',
       unit: expect.objectContaining({ id: 'unit-1', code: 'A-101' }),
       createdAt: '2026-01-01T00:00:00.000Z',
@@ -450,5 +453,169 @@ describe('ResidentsService', () => {
     ).resolves.toBe(saved);
     expect(lockedUnitIds).toEqual(['unit-a', 'unit-z']);
     expect(residents.save).toHaveBeenCalledWith(saved);
+  });
+
+  it('hides archived residents by default while keeping archive filtering independent from active', async () => {
+    const query = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      leftJoin: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getCount: jest.fn().mockResolvedValue(0),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getRawAndEntities: jest.fn().mockResolvedValue({ entities: [], raw: [] }),
+    };
+    const service = new ResidentsService(
+      { createQueryBuilder: jest.fn().mockReturnValue(query) } as never,
+      {} as never,
+      { getRepository: jest.fn() } as never,
+      {} as never,
+    );
+
+    await service.list({ page: 1, pageSize: 10, status: 'false' });
+    await service.list({ page: 1, pageSize: 10, includeArchived: 'true' });
+
+    expect(query.andWhere).toHaveBeenCalledWith('resident.archivedAt IS NULL');
+    expect(query.andWhere).toHaveBeenCalledWith('resident.active = :status', {
+      status: false,
+    });
+    expect(query.andWhere).toHaveBeenCalledTimes(2);
+  });
+
+  it('archives atomically after unit-first locks and disables the intact linked user', async () => {
+    const unit = {
+      id: 'unit-1', code: 'A-101', address: '101 Main Street', parkingSpaces: 1,
+      active: true, createdAt: new Date(), updatedAt: new Date(),
+    } as ResidentialUnit;
+    const resident = {
+      id: 'resident-1', unitId: 'unit-1', active: true, archivedAt: null, unit,
+      createdAt: new Date(), updatedAt: new Date(),
+    } as Resident;
+    const saved = { ...resident, active: false, archivedAt: new Date() };
+    const units = { findOne: jest.fn().mockResolvedValue(unit) };
+    const residents = {
+      findOne: jest.fn().mockResolvedValueOnce(resident).mockResolvedValueOnce(resident),
+      save: jest.fn().mockResolvedValue(saved),
+    };
+    const users = {
+      findOne: jest.fn().mockResolvedValue({ id: 'user-1', email: 'ana@example.com', role: Role.RESIDENT, residentId: resident.id, active: true }),
+      save: jest.fn().mockResolvedValue(undefined),
+    };
+    const manager = {
+      getRepository: jest.fn((entity) => entity === ResidentialUnit ? units : entity === User ? users : residents),
+    };
+    const audit = { record: jest.fn().mockResolvedValue(undefined) };
+    const service = new ResidentsService(
+      {} as never, {} as never,
+      { transaction: jest.fn((work) => work(manager)) } as never, audit,
+    );
+
+    await expect(service.archive(resident.id, actor)).resolves.toMatchObject({
+      id: resident.id, active: false, archivedAt: saved.archivedAt?.toISOString(),
+    });
+
+    expect(units.findOne).toHaveBeenCalledWith({
+      where: { id: resident.unitId }, lock: { mode: 'pessimistic_write' },
+    });
+    expect(users.save).toHaveBeenCalledWith(expect.objectContaining({ active: false }));
+    expect(residents.save).toHaveBeenCalledWith(expect.objectContaining({
+      active: false, archivedByUserId: actor.sub,
+    }));
+    expect(audit.record).toHaveBeenCalledWith(manager, expect.objectContaining({
+      action: 'RESIDENT_ARCHIVED', resourceId: resident.id,
+    }));
+  });
+
+  it('restores archive metadata while persisting the resident and linked user as inactive', async () => {
+    const unit = {
+      id: 'unit-1', code: 'A-101', address: '101 Main Street', parkingSpaces: 1,
+      active: true, createdAt: new Date(), updatedAt: new Date(),
+    } as ResidentialUnit;
+    const resident = {
+      id: 'resident-1', unitId: unit.id, active: true, archivedAt: new Date(),
+      archivedByUserId: actor.sub, unit, createdAt: new Date(), updatedAt: new Date(),
+    } as Resident;
+    const user = {
+      id: 'user-1', email: 'ana@example.com', role: Role.RESIDENT,
+      residentId: resident.id, active: true,
+    } as User;
+    const residents = {
+      findOne: jest.fn().mockResolvedValueOnce(resident).mockResolvedValueOnce(resident),
+      save: jest.fn((value) => Promise.resolve(value)),
+    };
+    const users = {
+      findOne: jest.fn().mockResolvedValue(user),
+      save: jest.fn((value) => Promise.resolve(value)),
+    };
+    const units = { findOne: jest.fn().mockResolvedValue(unit) };
+    const manager = {
+      getRepository: jest.fn((entity) => entity === ResidentialUnit ? units : entity === User ? users : residents),
+    };
+    const audit = { record: jest.fn().mockResolvedValue(undefined) };
+    const service = new ResidentsService(
+      {} as never, {} as never,
+      { transaction: jest.fn((work) => work(manager)) } as never, audit,
+    );
+
+    await expect(service.restore(resident.id, actor)).resolves.toMatchObject({
+      id: resident.id, active: false, archivedAt: null,
+    });
+    expect(residents.save).toHaveBeenCalledWith(expect.objectContaining({
+      active: false, archivedAt: null, archivedByUserId: null,
+    }));
+    expect(users.save).toHaveBeenCalledWith(expect.objectContaining({ active: false }));
+  });
+
+  it('rejects restore without an active unit or an intact resident identity', async () => {
+    const resident = {
+      id: 'resident-1', unitId: 'unit-1', active: false, archivedAt: new Date(),
+    } as Resident;
+    const units = { findOne: jest.fn().mockResolvedValue(null) };
+    const residents = { findOne: jest.fn().mockResolvedValue(resident), save: jest.fn() };
+    const users = { findOne: jest.fn().mockResolvedValue(null), save: jest.fn() };
+    const manager = {
+      getRepository: jest.fn((entity) => entity === ResidentialUnit ? units : entity === User ? users : residents),
+    };
+    const audit = { record: jest.fn() };
+    const service = new ResidentsService(
+      {} as never, {} as never,
+      { transaction: jest.fn((work) => work(manager)) } as never, audit,
+    );
+
+    await expect(service.restore(resident.id, actor)).rejects.toThrow(
+      'Unit must exist and be active',
+    );
+    expect(residents.save).not.toHaveBeenCalled();
+    expect(audit.record).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['archive', { archivedAt: new Date(), active: false }],
+    ['restore', { archivedAt: null, active: false }],
+  ] as const)('keeps repeated %s commands as audit-free no-ops', async (operation, state) => {
+    const resident = {
+      id: 'resident-1', unitId: 'unit-1', ...state,
+      createdAt: new Date(), updatedAt: new Date(),
+      unit: {
+        id: 'unit-1', code: 'A-101', address: '101 Main Street', parkingSpaces: 1,
+        active: true, createdAt: new Date(), updatedAt: new Date(),
+      },
+    } as Resident;
+    const residents = { findOne: jest.fn().mockResolvedValue(resident), save: jest.fn() };
+    const manager = { getRepository: jest.fn(() => residents) };
+    const audit = { record: jest.fn() };
+    const service = new ResidentsService(
+      {} as never, {} as never,
+      { transaction: jest.fn((work) => work(manager)) } as never, audit,
+    );
+
+    await expect(service[operation](resident.id, actor)).resolves.toMatchObject({
+      id: resident.id, active: false,
+    });
+    expect(residents.save).not.toHaveBeenCalled();
+    expect(audit.record).not.toHaveBeenCalled();
   });
 });

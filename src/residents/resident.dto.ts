@@ -15,6 +15,7 @@ type ResidentProjection = {
   name: string;
   phone: string | null;
   active: boolean;
+  archivedAt: Date | null;
   unitId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -72,6 +73,7 @@ export class ResidentResponseDto {
   @ApiProperty({ format: 'email' }) email!: string;
   @ApiProperty({ nullable: true }) phone!: string | null;
   @ApiProperty() active!: boolean;
+  @ApiProperty({ format: 'date-time', nullable: true }) archivedAt!: string | null;
   @ApiProperty({ format: 'uuid' }) unitId!: string;
   @ApiProperty({ type: ResidentUnitResponseDto })
   unit!: ResidentUnitResponseDto;
@@ -114,6 +116,7 @@ export function mapResidentResponse(resident: ResidentProjection, email: string 
     email: email as string,
     phone: resident.phone,
     active: resident.active,
+    archivedAt: resident.archivedAt?.toISOString() ?? null,
     unitId: resident.unitId,
     unit: {
       id: resident.unit.id,

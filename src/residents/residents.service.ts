@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { hash } from 'bcryptjs';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, IsNull, Repository } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
 import { AuthUser } from '../auth/auth.types';
 import { Role } from '../common/role.enum';
@@ -36,14 +36,16 @@ export class ResidentsService {
     search?: string;
     status?: string;
     unitId?: string;
+    includeArchived?: 'true' | 'false';
   }) {
-    const { page, pageSize, search, status, unitId } = params;
+    const { page, pageSize, search, status, unitId, includeArchived } = params;
     const query = this.residentRepository
       .createQueryBuilder('resident')
       .leftJoinAndSelect('resident.unit', 'unit')
       .leftJoin(User, 'user', 'user.residentId = resident.id')
       .addSelect('user.email', 'user_email');
 
+    if (includeArchived !== 'true') query.andWhere('resident.archivedAt IS NULL');
     if (search) {
       query.andWhere(
         '(resident.name ILIKE :search OR resident.phone ILIKE :search OR user.email ILIKE :search OR unit.code ILIKE :search)',
@@ -74,8 +76,10 @@ export class ResidentsService {
     return { items, total, page, pageSize };
   }
 
-  async findOne(id: string) {
-    const resident = await this.residentRepository.findOne({ where: { id } });
+  async findOne(id: string, includeArchived?: 'true' | 'false') {
+    const resident = await this.residentRepository.findOne({
+      where: includeArchived === 'true' ? { id } : { id, archivedAt: IsNull() },
+    });
     if (!resident) throw new NotFoundException('Resident not found');
     const user = await this.dataSource
       .getRepository(User)
@@ -198,6 +202,118 @@ export class ResidentsService {
 
   async remove(id: string, actor: AuthUser) {
     await this.update(id, { active: false }, actor);
+  }
+
+  async archive(id: string, actor: AuthUser) {
+    return this.dataSource.transaction(async (manager) => {
+      const residents = manager.getRepository(Resident);
+      const users = manager.getRepository(User);
+      const discovered = await residents.findOne({ where: { id } });
+      if (!discovered) throw new NotFoundException('Resident not found');
+      if (discovered.archivedAt) {
+        const user = await users.findOne({
+          where: { residentId: id, role: Role.RESIDENT },
+          select: { email: true },
+        });
+        return mapResidentResponse(discovered, user?.email);
+      }
+
+      const unit = await manager.getRepository(ResidentialUnit).findOne({
+        where: { id: discovered.unitId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!unit) throw new ConflictException('Resident unit must exist');
+      const resident = await residents.findOne({
+        where: { id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!resident) throw new NotFoundException('Resident not found');
+      if (resident.archivedAt) {
+        const user = await users.findOne({
+          where: { residentId: id, role: Role.RESIDENT },
+          select: { email: true },
+        });
+        return mapResidentResponse(resident, user?.email);
+      }
+      if (resident.unitId !== discovered.unitId) {
+        throw new ConflictException('Resident assignment changed during archive');
+      }
+      const user = await users.findOne({
+        where: { residentId: id, role: Role.RESIDENT },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!user) throw new ConflictException('Resident identity must be intact');
+
+      resident.active = false;
+      resident.archivedAt = new Date();
+      resident.archivedByUserId = actor.sub;
+      user.active = false;
+      await users.save(user);
+      const saved = await residents.save(resident);
+      await this.audit.record(manager, {
+        actor,
+        action: 'RESIDENT_ARCHIVED',
+        resourceType: 'RESIDENT',
+        resourceId: id,
+      });
+      return mapResidentResponse(saved, user.email);
+    });
+  }
+
+  async restore(id: string, actor: AuthUser) {
+    return this.dataSource.transaction(async (manager) => {
+      const residents = manager.getRepository(Resident);
+      const users = manager.getRepository(User);
+      const discovered = await residents.findOne({ where: { id } });
+      if (!discovered) throw new NotFoundException('Resident not found');
+      if (!discovered.archivedAt) {
+        const user = await users.findOne({
+          where: { residentId: id, role: Role.RESIDENT },
+          select: { email: true },
+        });
+        return mapResidentResponse(discovered, user?.email);
+      }
+
+      const unit = await manager.getRepository(ResidentialUnit).findOne({
+        where: { id: discovered.unitId, active: true },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!unit) throw new ConflictException('Unit must exist and be active');
+      const resident = await residents.findOne({
+        where: { id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!resident) throw new NotFoundException('Resident not found');
+      if (!resident.archivedAt) {
+        const user = await users.findOne({
+          where: { residentId: id, role: Role.RESIDENT },
+          select: { email: true },
+        });
+        return mapResidentResponse(resident, user?.email);
+      }
+      if (resident.unitId !== discovered.unitId) {
+        throw new ConflictException('Resident assignment changed during restore');
+      }
+      const user = await users.findOne({
+        where: { residentId: id, role: Role.RESIDENT },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!user) throw new ConflictException('Resident identity must be intact');
+
+      resident.active = false;
+      resident.archivedAt = null;
+      resident.archivedByUserId = null;
+      user.active = false;
+      await users.save(user);
+      const saved = await residents.save(resident);
+      await this.audit.record(manager, {
+        actor,
+        action: 'RESIDENT_RESTORED',
+        resourceType: 'RESIDENT',
+        resourceId: id,
+      });
+      return mapResidentResponse(saved, user.email);
+    });
   }
 }
 

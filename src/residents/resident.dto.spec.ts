@@ -58,6 +58,7 @@ describe('resident response contract', () => {
         name: 'Ana Garcia',
         phone: null,
         active: true,
+        archivedAt: null,
         unitId: 'unit-1',
         createdAt: new Date('2026-01-01T00:00:00.000Z'),
         updatedAt: new Date('2026-01-02T00:00:00.000Z'),
@@ -82,6 +83,7 @@ describe('resident response contract', () => {
       email: 'ana@example.com',
       phone: null,
       active: true,
+      archivedAt: null,
       unitId: 'unit-1',
       unit: {
         id: 'unit-1',

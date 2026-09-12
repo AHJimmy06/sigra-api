@@ -40,8 +40,8 @@ Chain strategy: feature-branch-chain
 
 ## Phase 5: Resident Archive Lifecycle (PR 5)
 
-- [ ] 5.1 RED: test archive visibility/filter, archive/restore, linked-user disable, restore active-unit/identity preconditions, `active`, reserved email, audit, and no-op in `src/residents/residents.service.spec.ts`, `src/migrations/1724600008000-AddResidentArchiveMetadata.spec.ts`.
-- [ ] 5.2 GREEN: create `src/migrations/1724600008000-AddResidentArchiveMetadata.ts`; update `src/residents/resident.entity.ts`, `src/residents/residents.service.ts`, `src/residents/residents.controller.ts`, `src/config/typeorm.datasource.ts` for archive metadata, visibility, and linked-user lifecycle; evidence: `npm test -- --runInBand residents` and PostgreSQL migration checks pass; disable writes, restore residents, revert before unit migrations.
+- [x] 5.1 RED: test archive visibility/filter, archive/restore, linked-user disable, restore active-unit/identity preconditions, `active`, reserved email, audit, and no-op in `src/residents/residents.service.spec.ts`, `src/migrations/1724600008000-AddResidentArchiveMetadata.spec.ts`.
+- [x] 5.2 GREEN: create `src/migrations/1724600008000-AddResidentArchiveMetadata.ts`; update `src/residents/resident.entity.ts`, `src/residents/residents.service.ts`, `src/residents/residents.controller.ts`, `src/config/typeorm.datasource.ts` for archive metadata, visibility, and linked-user lifecycle; evidence: `npm test -- --runInBand residents` and PostgreSQL migration checks pass; disable writes, restore residents, revert before unit migrations.
 
 ## Phase 6: Acceptance and Public Contract (PR 6)
 

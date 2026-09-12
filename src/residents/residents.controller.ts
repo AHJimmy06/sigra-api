@@ -45,8 +45,11 @@ export class ResidentsController {
 
   @Get(':id')
   @ApiOkResponse({ type: ResidentResponseDto })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.residentsService.findOne(id);
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: ResidentPaginationQueryDto,
+  ) {
+    return this.residentsService.findOne(id, query.includeArchived);
   }
 
   @Post()
@@ -65,6 +68,24 @@ export class ResidentsController {
     @CurrentUser() user: AuthUser,
   ) {
     return this.residentsService.update(id, dto, user);
+  }
+
+  @Post(':id/archive')
+  @ApiOkResponse({ type: ResidentResponseDto })
+  archive(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.residentsService.archive(id, user);
+  }
+
+  @Post(':id/restore')
+  @ApiOkResponse({ type: ResidentResponseDto })
+  restore(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.residentsService.restore(id, user);
   }
 
   @Delete(':id')
