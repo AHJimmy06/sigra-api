@@ -10,7 +10,7 @@ import { Role } from '../common/role.enum';
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid') id!: string;
-  @Column({ unique: true }) email!: string;
+  @Column() email!: string;
   @Column({ name: 'password_hash' }) passwordHash!: string;
   @Column({ type: 'enum', enum: Role }) role!: Role;
   @Column({ default: true }) active!: boolean;

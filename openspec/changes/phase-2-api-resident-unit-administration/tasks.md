@@ -30,8 +30,8 @@ Chain strategy: feature-branch-chain
 
 ## Phase 3: Resident Identity and Invariants (PR 3)
 
-- [ ] 3.1 RED: test normalized email collision/reservation, active-unit requirements, and create/reassign/reactivate races in `src/residents/residents.service.spec.ts`, `src/migrations/1724600006000-HardenResidentIdentity.spec.ts`.
-- [ ] 3.2 GREEN: create `src/migrations/1724600006000-HardenResidentIdentity.ts`; update `src/users/user.entity.ts`, `src/residents/residents.service.ts`, `src/config/typeorm.datasource.ts`; evidence: preflight/up/down pass; revert before PR 2 migration.
+- [x] 3.1 RED: test normalized email collision/reservation, active-unit requirements, and create/reassign/reactivate races in `src/residents/residents.service.spec.ts`, `src/migrations/1724600006000-HardenResidentIdentity.spec.ts`.
+- [x] 3.2 GREEN: create `src/migrations/1724600006000-HardenResidentIdentity.ts`; update `src/users/user.entity.ts`, `src/residents/residents.service.ts`, `src/config/typeorm.datasource.ts`; evidence: preflight/up/down pass; revert before PR 2 migration.
 
 ## Phase 4: Unit Archive Lifecycle (PR 4)
 

@@ -4,10 +4,11 @@
 
 - Delivery strategy: `exception-ok`; maintainer explicitly authorized reset to a 500-line accounting budget without scope growth.
 - Chain strategy: `feature-branch-chain`
-- Current work unit: `pr1-contracts-and-reads-budget-500` reached terminal complete with evidence revision `sha256:4e4015c4be18a3483785b132cedf0bc1cdbead170dd5adba94b33b16b693a8f4`.
+- PR 1 `pr1-contracts-and-reads-budget-500` reached terminal complete with evidence revision `sha256:4e4015c4be18a3483785b132cedf0bc1cdbead170dd5adba94b33b16b693a8f4`.
 - Native attempt token: `sha256:e66e9cd67bcd804e04804ec5f14d3e9f173141f0acd5a803aa250a73ebc140de`
 - Native risk assessment: Medium. RDD: off.
-- Current work unit: `pr2-unit-identity-and-invariants` is complete. The isolated disposable PostgreSQL proof passed migration up, normalized-index inspection, migration revert, rollback inspection, and container cleanup.
+- PR 2 `pr2-unit-identity-and-invariants` is complete. The isolated disposable PostgreSQL proof passed migration up, normalized-index inspection, migration revert, rollback inspection, and container cleanup.
+- Cumulative settled state: PR 1 and PR 2 history is preserved; PR 3 `pr3-resident-identity-and-invariants` is settled under parent-retained native attempt token `sha256:6814ae2c746dde3c25ea7cfce15e88ff514779dc4ee3c9c396748f1d870f1e25` with settlement revision `sha256:ac87ceada1342808f8bd26d37f991dc82a963a6772fb441d0ec77b96e814f16a`.
 - Remediation lineage: failed/remediated evidence revision `sha256:50a53bf47fa367a577b2986540a118397843ff13fbd9ca9f18410c882b4bcb86` is remediated by successful remediation settlement evidence revision `sha256:05fb1f36776c384e1a3b8ac71850cc48d048f758a8dc7b741e54ee1eeb44ec4c` under native attempt token `sha256:0c319179e88892d37044d8197e313aa039c3c806d5a9112918e20654f2708cba`; the old shared-volume credential failure remains historical evidence only.
 
 ## Task Completion
@@ -16,8 +17,8 @@
 - [x] 1.2 GREEN: contract/read implementation.
 - [x] 2.1 RED: unit identity and invariants.
 - [x] 2.2 GREEN: unit identity and invariants.
-- [ ] 3.1 RED: resident identity and invariants.
-- [ ] 3.2 GREEN: resident identity and invariants.
+- [x] 3.1 RED: resident identity and invariants.
+- [x] 3.2 GREEN: resident identity and invariants.
 - [ ] 4.1 RED: unit archive lifecycle.
 - [ ] 4.2 GREEN: unit archive lifecycle.
 - [ ] 5.1 RED: resident archive lifecycle.
@@ -70,4 +71,35 @@
 
 - Archive visibility/filter and restore behavior remain unimplemented for later authorized slices.
 - Existing JWT transport, ADMIN guards, Phase 0 error handling, boolean `active`, and deterministic list ordering were preserved.
-- Tasks 2.1 and 2.2 are complete with correction evidence distinct from the failed shared-volume attempt; the next authorized work unit is PR 3.
+- Tasks 1.1 through 3.2 are complete with verified evidence; the next authorized work unit is PR 4.
+
+## Work Unit Evidence: PR 3 Resident Identity and Invariants
+
+### Status
+
+- Delivery strategy: `exception-ok`; chain strategy: `feature-branch-chain`.
+- Current work unit: `pr3-resident-identity-and-invariants`, parent boundary `ab832eb`.
+- Native attempt token is retained by the parent: `sha256:6814ae2c746dde3c25ea7cfce15e88ff514779dc4ee3c9c396748f1d870f1e25`; settlement revision: `sha256:ac87ceada1342808f8bd26d37f991dc82a963a6772fb441d0ec77b96e814f16a`.
+- Completed only tasks 3.1 and 3.2; archive metadata, archive visibility, archive/restore endpoints, and restore preconditions remain PR 5 scope.
+
+### TDD Cycle Evidence
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|---|---|---|---|---|---|---|---|
+| 3.1 | `src/residents/residents.service.spec.ts`, `src/migrations/1724600006000-HardenResidentIdentity.spec.ts` | Unit + PostgreSQL migration contract | `npm test -- --runInBand residents migrations`: PASS — 4 suites, 18 tests before changes (after `npm ci`; the initial runner invocation was infrastructure-blocked because Jest was absent). | `npm test -- --runInBand residents migrations`: FAIL — 2 suites, 2 tests; absent `HardenResidentIdentity1724600006000`, missing create unit lock, and missing reactivation invariant. | PASS — 5 suites, 23 tests after the minimal migration, canonical identity, and locking implementation. | Added reassign success and moved-resident race cases; final focused run PASS — 5 suites, 25 tests. | No behavior-changing refactor was needed; final focused run remained green. |
+| 3.2 | Same PR 3 focused test files | Unit + PostgreSQL migration contract | Same 4-suite, 18-test safety net; new migration file was N/A. | Same paired task-3.1 RED run. | PASS — normalized preflight/canonicalization/index/down behavior and unit-first locks compile and pass. | Migration tests cover success, collision abort before DDL, and down restoration; service tests cover canonical create, inactive reactivation rejection, sorted reassignment locks, and stale assignment conflict. | No behavior-changing refactor was needed; final focused run remained green. |
+
+### Work Unit Evidence
+
+| Evidence | Result |
+|---|---|
+| Focused test command and exact result | Parent-observed spot-check: `npm test -- --runInBand residents migrations`: PASS — 5 suites, 25 tests. |
+| Runtime harness command/scenario and exact result | A uniquely named disposable PostgreSQL 16 container without a persistent volume became ready within the bounded 30-attempt `pg_isready` loop. Process-scoped credentials ran `npm run migration:run` (7 migrations) successfully. Schema inspection returned `uq_users_email_normalized|CREATE UNIQUE INDEX uq_users_email_normalized ON public.users USING btree (lower(btrim((email)::text)))` and no `users_email_key` row. `npm run migration:revert` reverted `HardenResidentIdentity1724600006000`; rollback inspection returned `users_email_key|UNIQUE (email)` and no normalized-index row. The forced `docker rm -f` cleanup completed; credentials were neither persisted nor reported. |
+| Build command and exact result | `npm run build`: PASS — Nest build completed. |
+| Rollback boundary | Revert `src/migrations/1724600006000-HardenResidentIdentity.ts`, its spec, the registration in `src/config/typeorm.datasource.ts`, the `User.email` metadata change, and PR 3 resident service/test changes. This removes only normalized user/resident email identity and resident unit-first locking, leaving PR 1 contracts and PR 2 unit identity intact. |
+
+### Verification and Accounting: PR 3
+
+- `git diff --check`: PASS.
+- Authored source/test change from parent boundary `ab832eb`: 343 lines (328 additions, 15 deletions); no generated files. This is within the 400-line maximum.
+- `npm ci`: PASS — installed 768 packages; dependency audit warnings were not changed by this work unit.

@@ -93,6 +93,7 @@ export class ResidentsService {
         const residents = manager.getRepository(Resident);
         const unit = await units.findOne({
           where: { id: dto.unitId, active: true },
+          lock: { mode: 'pessimistic_write' },
         });
         if (!unit) {
           throw new ConflictException('Unit must exist and be active');
@@ -134,23 +135,47 @@ export class ResidentsService {
 
   async update(id: string, dto: UpdateResidentDto, actor: AuthUser) {
     dto = normalizeResidentInput(dto);
-    if (dto.unitId) {
-      const unit = await this.unitRepository.findOne({
-        where: { id: dto.unitId, active: true },
-      });
-      if (!unit) throw new ConflictException('Unit must exist and be active');
-    }
-
     return this.dataSource.transaction(async (manager) => {
       const residents = manager.getRepository(Resident);
-      const resident = await residents.findOne({ where: { id } });
+      const users = manager.getRepository(User);
+      const requiresActiveUnit = dto.unitId !== undefined || dto.active === true;
+      let lockedUnitIds = new Set<string>();
+
+      if (requiresActiveUnit) {
+        const discovered = await residents.findOne({ where: { id } });
+        if (!discovered) throw new NotFoundException('Resident not found');
+
+        lockedUnitIds = new Set([discovered.unitId, dto.unitId ?? discovered.unitId]);
+        const targetUnitId = dto.unitId ?? discovered.unitId;
+        const units = manager.getRepository(ResidentialUnit);
+        for (const unitId of [...lockedUnitIds].sort()) {
+          const unit = await units.findOne({
+            where:
+              unitId === targetUnitId ? { id: unitId, active: true } : { id: unitId },
+            lock: { mode: 'pessimistic_write' },
+          });
+          if (!unit) {
+            throw new ConflictException('Unit must exist and be active');
+          }
+        }
+      }
+
+      const resident = await residents.findOne({
+        where: { id },
+        lock: { mode: 'pessimistic_write' },
+      });
       if (!resident) throw new NotFoundException('Resident not found');
+      if (requiresActiveUnit && !lockedUnitIds.has(resident.unitId)) {
+        throw new ConflictException('Resident assignment changed during update');
+      }
       const previousActive = resident.active;
       const saved = await residents.save(residents.merge(resident, dto));
       if (dto.active !== undefined) {
-        await manager
-          .getRepository(User)
-          .update({ residentId: id }, { active: dto.active });
+        await users.findOne({
+          where: { residentId: id },
+          lock: { mode: 'pessimistic_write' },
+        });
+        await users.update({ residentId: id }, { active: dto.active });
       }
       await this.audit.record(manager, {
         actor,
