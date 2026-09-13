@@ -42,8 +42,11 @@ export const SAFE_PUBLIC_4XX_MESSAGES = new Set([
 ]);
 
 export class ContractValidationException extends BadRequestException {
-  constructor(readonly details: Record<string, string[]>) {
-    super('Validation failed');
+  constructor(
+    readonly details: Record<string, string[]>,
+    message = 'Validation failed',
+  ) {
+    super(message);
   }
 }
 

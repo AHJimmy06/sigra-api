@@ -1,4 +1,7 @@
 import { DataSource } from 'typeorm';
+import { execFile as execFileCallback } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
+import { promisify } from 'node:util';
 import { DerivationKeyring } from './derivation-keyring';
 import { DigestKeyring } from './digest-keyring';
 import { SessionKeyReadiness } from './session-key-readiness';
@@ -24,6 +27,60 @@ const CLEANUP_SESSION_IDS = [
   'e2b2c3d4-e5f6-4789-abcd-ef0123456789',
   'f2b2c3d4-e5f6-4789-abcd-ef0123456789',
 ] as const;
+const execFile = promisify(execFileCallback);
+let containerName: string | undefined;
+let databasePort: number;
+let schemaDataSource: DataSource;
+
+beforeAll(async () => {
+  const database = `session_proof_${process.pid}`;
+  const user = `session_proof_${process.pid}`;
+  const password = randomUUID();
+  containerName = `sigra-session-proof-${process.pid}-${randomUUID()}`;
+  await execFile('docker', [
+    'run', '--detach', '--name', containerName, '--publish', '127.0.0.1::5432',
+    '--env', `POSTGRES_DB=${database}`, '--env', `POSTGRES_USER=${user}`,
+    '--env', 'POSTGRES_PASSWORD', 'postgres:16-alpine',
+  ], { env: { ...process.env, POSTGRES_PASSWORD: password } });
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    try {
+      await execFile('docker', [
+        'exec',
+        containerName,
+        'psql',
+        '--username',
+        user,
+        '--dbname',
+        database,
+        '--command',
+        'SELECT 1',
+      ]);
+      break;
+    } catch (error) {
+      if (attempt === 59) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+  }
+  const { stdout } = await execFile('docker', ['port', containerName, '5432/tcp']);
+  const port = Number(stdout.trim().match(/:(\d+)$/u)?.[1]);
+  if (!port) throw new Error('Disposable PostgreSQL did not publish a host port');
+  Object.assign(process.env, {
+    DATABASE_HOST: '127.0.0.1', DATABASE_PORT: String(port), DATABASE_USER: user,
+    DATABASE_PASSWORD: password, DATABASE_NAME: database,
+  });
+  databasePort = port;
+  schemaDataSource = require('../../config/typeorm.datasource').default;
+  const proof = new DataSource({
+    ...schemaDataSource.options, host: '127.0.0.1', port, username: user, password, database,
+  });
+  await proof.initialize();
+  await proof.runMigrations();
+  await proof.destroy();
+});
+
+afterAll(async () => {
+  if (containerName) await execFile('docker', ['rm', '--force', containerName]);
+});
 
 function operationFacts(operationId: string): OperationFacts {
   return {
@@ -41,6 +98,13 @@ function operationFacts(operationId: string): OperationFacts {
 
 describe('session key readiness PostgreSQL boundary', () => {
   let dataSource: DataSource;
+
+  it('loads the schema datasource with the dynamic container endpoint', () => {
+    expect(schemaDataSource.options).toMatchObject({
+      host: '127.0.0.1',
+      port: databasePort,
+    });
+  });
 
   beforeAll(async () => {
     dataSource = new DataSource({

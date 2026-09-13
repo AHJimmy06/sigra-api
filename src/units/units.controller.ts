@@ -10,7 +10,6 @@ import {
   Patch,
   Post,
   Query,
-  UsePipes,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -27,8 +26,8 @@ import {
 import { UnitsService } from './units.service';
 import type { AuthUser } from '../auth/auth.types';
 import { CurrentUser } from '../common/current-user.decorator';
-import { NonEmptyPatchPipe } from '../common/non-empty-patch.pipe';
-import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
+import { assertNonEmptyPatch } from '../common/non-empty-patch.pipe';
+import { ApiCreatedResponse, ApiOkResponse, ApiQuery } from '@nestjs/swagger';
 
 @Controller('units')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -38,12 +37,22 @@ export class UnitsController {
 
   @Get()
   @ApiOkResponse({ type: PaginatedUnitsResponseDto })
+  @ApiQuery({
+    name: 'includeArchived',
+    required: false,
+    enum: ['true', 'false'],
+  })
   list(@Query() query: UnitPaginationQueryDto) {
     return this.unitsService.list(query);
   }
 
   @Get(':id')
   @ApiOkResponse({ type: UnitResponseDto })
+  @ApiQuery({
+    name: 'includeArchived',
+    required: false,
+    enum: ['true', 'false'],
+  })
   findOne(
     @Param('id', ParseUUIDPipe) id: string,
     @Query() query: UnitPaginationQueryDto,
@@ -59,17 +68,17 @@ export class UnitsController {
   }
 
   @Patch(':id')
-  @UsePipes(NonEmptyPatchPipe)
   @ApiOkResponse({ type: UnitResponseDto })
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateUnitDto,
     @CurrentUser() user: AuthUser,
   ) {
-    return this.unitsService.update(id, dto, user);
+    return this.unitsService.update(id, assertNonEmptyPatch(dto), user);
   }
 
   @Post(':id/archive')
+  @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: UnitResponseDto })
   archive(
     @Param('id', ParseUUIDPipe) id: string,
@@ -79,6 +88,7 @@ export class UnitsController {
   }
 
   @Post(':id/restore')
+  @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: UnitResponseDto })
   restore(
     @Param('id', ParseUUIDPipe) id: string,

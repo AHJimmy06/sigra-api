@@ -10,7 +10,7 @@ export default registerAs('database', (): TypeOrmModuleOptions => ({
   database: process.env.DATABASE_NAME ?? 'sigra',
   autoLoadEntities: true,
   synchronize: false,
-  migrations: [__dirname + '/../migrations/*{.ts,.js}'],
+  migrations: [__dirname + '/../migrations/!(*.spec){.ts,.js}'],
   migrationsRun: process.env.DATABASE_RUN_MIGRATIONS === 'true',
   ssl:
     process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: true } : false,

@@ -14,7 +14,11 @@ const actor = {
 
 describe('UnitsService', () => {
   it('creates a unique unit and audit record in one transaction', async () => {
-    const unit = { id: 'unit-1', code: 'A-101' } as ResidentialUnit;
+    const unit = {
+      id: 'unit-1', code: 'A-101', address: '101 Main Street', parkingSpaces: 2,
+      active: true, archivedAt: null, createdAt: new Date(), updatedAt: new Date(),
+      archivedByUserId: 'admin-0',
+    } as ResidentialUnit;
     const repository = {
       exists: jest.fn().mockResolvedValue(false),
       create: jest.fn().mockReturnValue(unit),
@@ -29,12 +33,12 @@ describe('UnitsService', () => {
     const audit = { record: jest.fn().mockResolvedValue(undefined) };
     const service = new UnitsService({} as never, dataSource as never, audit);
 
-    await expect(
-      service.create(
-        { code: 'A-101', address: '101 Main Street', parkingSpaces: 2 },
-        actor,
-      ),
-    ).resolves.toBe(unit);
+    const result = await service.create(
+      { code: 'A-101', address: '101 Main Street', parkingSpaces: 2 },
+      actor,
+    );
+    expect(result).toMatchObject({ id: unit.id, code: unit.code, archivedAt: null });
+    expect(result).not.toHaveProperty('archivedByUserId');
     expect(audit.record).toHaveBeenCalledWith(
       manager,
       expect.objectContaining({ action: 'UNIT_CREATED', resourceId: unit.id }),
@@ -42,7 +46,10 @@ describe('UnitsService', () => {
   });
 
   it('canonicalizes code boundaries before preflighting and persisting a unit', async () => {
-    const unit = { id: 'unit-1', code: 'a-101' } as ResidentialUnit;
+    const unit = {
+      id: 'unit-1', code: 'a-101', active: true, archivedAt: null,
+      createdAt: new Date(), updatedAt: new Date(),
+    } as ResidentialUnit;
     const repository = {
       exists: jest.fn().mockResolvedValue(false),
       create: jest.fn().mockReturnValue(unit),
@@ -134,7 +141,10 @@ describe('UnitsService', () => {
   });
 
   it('locks then deactivates a unit when only inactive residents remain linked', async () => {
-    const unit = { id: 'unit-1', active: true } as ResidentialUnit;
+    const unit = {
+      id: 'unit-1', active: true, code: 'A-101', address: '101 Main Street', parkingSpaces: 1,
+      archivedAt: null, createdAt: new Date(), updatedAt: new Date(),
+    } as ResidentialUnit;
     const saved = { ...unit, active: false } as ResidentialUnit;
     const unitRepository = {
       findOne: jest.fn().mockResolvedValue(unit),
@@ -162,7 +172,7 @@ describe('UnitsService', () => {
 
     await expect(
       service.update(unit.id, { active: false }, actor),
-    ).resolves.toBe(saved);
+    ).resolves.toMatchObject({ id: saved.id, active: false, archivedAt: null });
 
     expect(residentRepository.count).toHaveBeenCalledWith({
       where: { unitId: unit.id, active: true },

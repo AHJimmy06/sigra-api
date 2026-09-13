@@ -1613,6 +1613,18 @@
             }
           },
           {
+            "name": "includeArchived",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "true",
+                "false"
+              ],
+              "type": "string"
+            }
+          },
+          {
             "name": "status",
             "required": false,
             "in": "query",
@@ -1860,6 +1872,180 @@
       }
     },
     "/api/residents/{id}": {
+      "get": {
+        "operationId": "ResidentsController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "unitId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "includeArchived",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "true",
+                "false"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 160,
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResidentResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Phase 0 error (400)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Phase 0 error (401)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Phase 0 error (403)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Phase 0 error (404)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Phase 0 error (409)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Phase 0 error (429)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Phase 0 error (500)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Residents"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
       "patch": {
         "operationId": "ResidentsController_update",
         "parameters": [
@@ -1888,7 +2074,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ResidentUpdateResponseDto"
+                  "$ref": "#/components/schemas/ResidentResponseDto"
                 }
               }
             }
@@ -1988,6 +2174,216 @@
         "responses": {
           "204": {
             "description": ""
+          },
+          "400": {
+            "description": "Phase 0 error (400)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Phase 0 error (401)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Phase 0 error (403)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Phase 0 error (404)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Phase 0 error (409)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Phase 0 error (429)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Phase 0 error (500)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Residents"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/residents/{id}/archive": {
+      "post": {
+        "operationId": "ResidentsController_archive",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResidentResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Phase 0 error (400)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Phase 0 error (401)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Phase 0 error (403)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Phase 0 error (404)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Phase 0 error (409)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Phase 0 error (429)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Phase 0 error (500)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Residents"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/residents/{id}/restore": {
+      "post": {
+        "operationId": "ResidentsController_restore",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResidentResponseDto"
+                }
+              }
+            }
           },
           "400": {
             "description": "Phase 0 error (400)",
@@ -2659,6 +3055,18 @@
         "operationId": "UnitsController_list",
         "parameters": [
           {
+            "name": "includeArchived",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "true",
+                "false"
+              ],
+              "type": "string"
+            }
+          },
+          {
             "name": "status",
             "required": false,
             "in": "query",
@@ -2906,6 +3314,171 @@
       }
     },
     "/api/units/{id}": {
+      "get": {
+        "operationId": "UnitsController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "includeArchived",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "true",
+                "false"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 160,
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnitResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Phase 0 error (400)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Phase 0 error (401)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Phase 0 error (403)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Phase 0 error (404)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Phase 0 error (409)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Phase 0 error (429)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Phase 0 error (500)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Units"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
       "patch": {
         "operationId": "UnitsController_update",
         "parameters": [
@@ -3034,6 +3607,216 @@
         "responses": {
           "204": {
             "description": ""
+          },
+          "400": {
+            "description": "Phase 0 error (400)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Phase 0 error (401)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Phase 0 error (403)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Phase 0 error (404)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Phase 0 error (409)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Phase 0 error (429)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Phase 0 error (500)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Units"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/units/{id}/archive": {
+      "post": {
+        "operationId": "UnitsController_archive",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnitResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Phase 0 error (400)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Phase 0 error (401)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Phase 0 error (403)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Phase 0 error (404)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Phase 0 error (409)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Phase 0 error (429)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Phase 0 error (500)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Units"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/units/{id}/restore": {
+      "post": {
+        "operationId": "UnitsController_restore",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnitResponseDto"
+                }
+              }
+            }
           },
           "400": {
             "description": "Phase 0 error (400)",
@@ -3713,6 +4496,11 @@
           "active": {
             "type": "boolean"
           },
+          "archivedAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
           "unitId": {
             "type": "string",
             "format": "uuid"
@@ -3735,6 +4523,7 @@
           "email",
           "phone",
           "active",
+          "archivedAt",
           "unitId",
           "unit",
           "createdAt",
@@ -3820,54 +4609,14 @@
             "type": "string",
             "format": "uuid"
           },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
           "active": {
             "type": "boolean"
           }
         }
-      },
-      "ResidentUpdateResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "name": {
-            "type": "string"
-          },
-          "phone": {
-            "type": "string",
-            "nullable": true
-          },
-          "active": {
-            "type": "boolean"
-          },
-          "unitId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "unit": {
-            "$ref": "#/components/schemas/ResidentUnitResponseDto"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "phone",
-          "active",
-          "unitId",
-          "unit",
-          "createdAt",
-          "updatedAt"
-        ]
       },
       "TicketResponseDto": {
         "type": "object",
@@ -4063,6 +4812,11 @@
           "active": {
             "type": "boolean"
           },
+          "archivedAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -4078,6 +4832,7 @@
           "address",
           "parkingSpaces",
           "active",
+          "archivedAt",
           "createdAt",
           "updatedAt"
         ]

@@ -115,11 +115,20 @@ describe('ResidentsService', () => {
   });
 
   it('creates a resident account transactionally without exposing the password hash', async () => {
-    const unit = { id: 'unit-1', active: true } as ResidentialUnit;
+    const unit = {
+      id: 'unit-1', code: 'A-101', address: '101 Main Street', parkingSpaces: 1,
+      active: true, createdAt: new Date(), updatedAt: new Date(),
+    } as ResidentialUnit;
     const resident = {
       id: 'resident-1',
       name: 'Ana Garcia',
       unitId: unit.id,
+      phone: null,
+      active: true,
+      archivedAt: null,
+      unit,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     } as Resident;
     const residentRepository = {
       create: jest.fn().mockReturnValue(resident),
@@ -165,8 +174,11 @@ describe('ResidentsService', () => {
       actor,
     );
 
-    expect(result).toEqual({ ...resident, email: 'ana@example.com' });
+    expect(result).toMatchObject({
+      id: resident.id, email: 'ana@example.com', unit: { id: unit.id },
+    });
     expect(result).not.toHaveProperty('passwordHash');
+    expect(result).not.toHaveProperty('archivedByUserId');
     const persistedUser = userRepository.create.mock.calls[0][0];
     await expect(
       compare('temporary-password', persistedUser.passwordHash),
@@ -181,10 +193,72 @@ describe('ResidentsService', () => {
     );
   });
 
+  it('updates a resident email canonically and returns the allowlisted resource', async () => {
+    const unit = {
+      id: 'unit-1', code: 'A-101', address: '101 Main Street', parkingSpaces: 1,
+      active: true, createdAt: new Date(), updatedAt: new Date(),
+    } as ResidentialUnit;
+    const resident = {
+      id: 'resident-1', name: 'Ana Garcia', phone: null, active: true,
+      archivedAt: null, unitId: unit.id, unit, createdAt: new Date(), updatedAt: new Date(),
+    } as Resident;
+    const saved = { ...resident, archivedByUserId: 'admin-0' };
+    const residents = {
+      findOne: jest.fn().mockResolvedValue(resident),
+      merge: jest.fn().mockReturnValue(saved),
+      save: jest.fn().mockResolvedValue(saved),
+    };
+    const user = { id: 'user-1', residentId: resident.id, email: 'old@example.com' };
+    const users = {
+      findOne: jest.fn().mockResolvedValue(user),
+      exists: jest.fn().mockResolvedValue(false),
+      save: jest.fn().mockResolvedValue({ ...user, email: 'new@example.com' }),
+    };
+    const manager = {
+      getRepository: jest.fn((entity) => entity === Resident ? residents : users),
+    };
+    const service = new ResidentsService(
+      {} as never, {} as never,
+      { transaction: jest.fn((work) => work(manager)) } as never,
+      { record: jest.fn().mockResolvedValue(undefined) },
+    );
+
+    await expect(service.update(resident.id, { email: ' NEW@EXAMPLE.COM ' }, actor))
+      .resolves.toMatchObject({ id: resident.id, email: 'new@example.com', unit: { id: unit.id } });
+    expect(users.exists).toHaveBeenCalledWith({ where: { email: 'new@example.com' } });
+    expect(users.save).toHaveBeenCalledWith({ ...user, email: 'new@example.com' });
+  });
+
+  it('normalizes resident search terms before building the query', async () => {
+    const query = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(), leftJoin: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(), andWhere: jest.fn().mockReturnThis(),
+      getCount: jest.fn().mockResolvedValue(0), orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(), skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(), getRawAndEntities: jest.fn().mockResolvedValue({ entities: [], raw: [] }),
+    };
+    const service = new ResidentsService(
+      { createQueryBuilder: jest.fn().mockReturnValue(query) } as never,
+      {} as never, {} as never, {} as never,
+    );
+
+    await service.list({ page: 1, pageSize: 10, search: ' Ada@Example.Com ' });
+    expect(query.andWhere).toHaveBeenCalledWith(expect.any(String), {
+      search: '%ada@example.com%',
+    });
+  });
+
   it.each([true, false])(
     'updates the resident and linked user active state to %s atomically',
     async (active) => {
-      const resident = { id: 'resident-1', active: !active } as Resident;
+      const unit = {
+        id: 'unit-1', code: 'A-101', address: '101 Main Street', parkingSpaces: 1,
+        active: true, createdAt: new Date(), updatedAt: new Date(),
+      } as ResidentialUnit;
+      const resident = {
+        id: 'resident-1', active: !active, unitId: unit.id, unit,
+        name: 'Ana Garcia', phone: null, archivedAt: null, createdAt: new Date(), updatedAt: new Date(),
+      } as Resident;
       const saved = { ...resident, active };
       const residentRepository = {
         findOne: jest.fn().mockResolvedValue(resident),
@@ -192,7 +266,7 @@ describe('ResidentsService', () => {
         save: jest.fn().mockResolvedValue(saved),
       };
       const userRepository = {
-        findOne: jest.fn().mockResolvedValue({ id: 'user-1' }),
+        findOne: jest.fn().mockResolvedValue({ id: 'user-1', email: 'ana@example.com' }),
         update: jest.fn().mockResolvedValue(undefined),
       };
       const unitRepository = {
@@ -226,7 +300,7 @@ describe('ResidentsService', () => {
 
       await expect(
         service.update(resident.id, { active }, actor),
-      ).resolves.toBe(saved);
+      ).resolves.toMatchObject({ id: saved.id, email: 'ana@example.com', active });
       expect(dataSource.transaction).toHaveBeenCalledTimes(1);
       expect(userRepository.update).toHaveBeenCalledWith(
         { residentId: resident.id },
@@ -299,8 +373,14 @@ describe('ResidentsService', () => {
   });
 
   it('locks the active target unit before creating a canonical resident identity', async () => {
-    const unit = { id: 'unit-1', active: true } as ResidentialUnit;
-    const resident = { id: 'resident-1', unitId: unit.id } as Resident;
+    const unit = {
+      id: 'unit-1', code: 'A-101', address: '101 Main Street', parkingSpaces: 1,
+      active: true, createdAt: new Date(), updatedAt: new Date(),
+    } as ResidentialUnit;
+    const resident = {
+      id: 'resident-1', unitId: unit.id, name: 'Ana Garcia', phone: null,
+      active: true, archivedAt: null, unit, createdAt: new Date(), updatedAt: new Date(),
+    } as Resident;
     const units = { findOne: jest.fn().mockResolvedValue(unit) };
     const users = {
       exists: jest.fn().mockResolvedValue(false),
@@ -415,10 +495,16 @@ describe('ResidentsService', () => {
   });
 
   it('reassigns only after locking the current and active target units', async () => {
+    const responseUnit = {
+      id: 'unit-a', code: 'A-101', address: '101 Main Street', parkingSpaces: 1,
+      active: true, createdAt: new Date(), updatedAt: new Date(),
+    } as ResidentialUnit;
     const resident = {
       id: 'resident-1',
       unitId: 'unit-z',
       active: true,
+      name: 'Ana Garcia', phone: null, archivedAt: null, unit: responseUnit,
+      createdAt: new Date(), updatedAt: new Date(),
     } as Resident;
     const saved = { ...resident, unitId: 'unit-a' } as Resident;
     const lockedUnitIds: string[] = [];
@@ -438,7 +524,7 @@ describe('ResidentsService', () => {
     };
     const manager = {
       getRepository: jest.fn((entity) =>
-        entity === ResidentialUnit ? units : residents,
+        entity === ResidentialUnit ? units : entity === User ? { findOne: jest.fn().mockResolvedValue({ email: 'ana@example.com' }) } : residents,
       ),
     };
     const service = new ResidentsService(
@@ -450,7 +536,7 @@ describe('ResidentsService', () => {
 
     await expect(
       service.update(resident.id, { unitId: saved.unitId }, actor),
-    ).resolves.toBe(saved);
+    ).resolves.toMatchObject({ id: saved.id, email: 'ana@example.com', unit: { id: responseUnit.id } });
     expect(lockedUnitIds).toEqual(['unit-a', 'unit-z']);
     expect(residents.save).toHaveBeenCalledWith(saved);
   });

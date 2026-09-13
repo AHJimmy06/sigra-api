@@ -81,7 +81,7 @@ export class UnitsService {
           resourceType: 'UNIT',
           resourceId: unit.id,
         });
-        return unit;
+        return mapUnitResponse(unit);
       });
     } catch (error) {
       if (isUniqueViolation(error)) {
@@ -129,7 +129,7 @@ export class UnitsService {
               ? {}
               : { active: { from: previousActive, to: dto.active } },
         });
-        return saved;
+        return mapUnitResponse(saved);
       });
     } catch (error) {
       if (isUniqueViolation(error)) {

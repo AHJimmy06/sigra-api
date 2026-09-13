@@ -45,5 +45,5 @@ Chain strategy: feature-branch-chain
 
 ## Phase 6: Acceptance and Public Contract (PR 6)
 
-- [ ] 6.1 RED: test ADMIN/errors, filters, pagination, lifecycle, dependencies, audits, leaks in `test/resident-unit-administration.e2e-spec.ts`, `src/openapi/openapi-artifact.spec.ts`.
-- [ ] 6.2 GREEN: update `src/common/http/http-error.contract.ts`, `docs/openapi/v1.json`, `src/openapi/openapi-artifact.spec.ts`, `test/resident-unit-administration.e2e-spec.ts`; evidence: `npm test -- --runInBand`, `npm run build`, `npm run openapi:check`, `npm run test:e2e` pass; retain restore capability.
+- [x] 6.1 RED: test ADMIN/errors, filters, pagination, lifecycle, dependencies, audits, leaks in `test/resident-unit-administration.e2e-spec.ts`, `src/openapi/openapi-artifact.spec.ts`.
+- [x] 6.2 GREEN: update `src/common/http/http-error.contract.ts`, `docs/openapi/v1.json`, `src/openapi/openapi-artifact.spec.ts`, `test/resident-unit-administration.e2e-spec.ts`; evidence: `npm test -- --runInBand`, `npm run build`, `npm run openapi:check`, `npm run test:e2e` pass; retain restore capability.

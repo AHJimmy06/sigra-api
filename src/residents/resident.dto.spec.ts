@@ -35,6 +35,14 @@ describe('resident phone contract', () => {
 });
 
 describe('resident response contract', () => {
+  it('accepts an email on a resident PATCH contract', async () => {
+    const dto = plainToInstance(UpdateResidentDto, {
+      email: ' ANA@EXAMPLE.COM ',
+    });
+
+    await expect(validate(dto)).resolves.toHaveLength(0);
+  });
+
   it('normalizes boundary whitespace and email casing without changing active', () => {
     expect(
       normalizeResidentInput({

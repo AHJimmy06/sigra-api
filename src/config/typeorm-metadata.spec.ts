@@ -1,5 +1,5 @@
 import type { ColumnMetadata } from 'typeorm/metadata/ColumnMetadata';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { execFile as execFileCallback } from 'node:child_process';
 import { promisify } from 'node:util';
 import { DataSource, type EntityMetadata, type QueryRunner } from 'typeorm';
@@ -13,14 +13,8 @@ import { AddAuthSessionSchema1724600004000 } from '../migrations/1724600004000-A
 const GENERATED_DUMP_COMMENT =
   /^-- (?:PostgreSQL database dump|Dumped from database version|Dumped by pg_dump version|PostgreSQL database dump complete).*$/;
 const execFile = promisify(execFileCallback);
-const COMPOSE_ARGUMENTS = [
-  'compose',
-  '-p',
-  'sigra-phase0-local',
-  '-f',
-  'compose.dev.yml',
-];
 const OWNED_TABLES = ['auth_sessions', 'refresh_operations'];
+const DISPOSABLE_POSTGRES_IMAGE = 'postgres:16-alpine';
 
 jest.setTimeout(120_000);
 
@@ -413,19 +407,6 @@ function canonicalizeSchemaDump(dump: string): string {
     .join('\n');
 }
 
-function assertSchemaProofPreconditions(
-  services: string[],
-  dumpExitCode = 0,
-  dumpStderr = '',
-): void {
-  if (!services.includes('postgres')) {
-    throw new Error('Compose service "postgres" is required for schema proof');
-  }
-  if (dumpExitCode !== 0) {
-    throw new Error(`pg_dump failed: ${dumpStderr}`);
-  }
-}
-
 function schemaDumpHash(dump: string): string {
   return createHash('sha256').update(dump).digest('hex');
 }
@@ -512,27 +493,100 @@ function queryRows(value: unknown): Array<Record<string, unknown>> {
   });
 }
 
-function schemaProofEnvironment(): NodeJS.ProcessEnv {
+type DisposablePostgresPlan = {
+  containerName: string;
+  args: string[];
+};
+
+function createDisposablePostgresPlan(
+  runId: string,
+  database = 'schema_proof',
+  user = 'schema_proof',
+): DisposablePostgresPlan {
+  const containerName = `sigra-schema-proof-${runId}`;
+
   return {
-    ...process.env,
-    SIGRA_POSTGRES_PASSWORD:
-      process.env.SIGRA_POSTGRES_PASSWORD ?? 'schema-proof',
+    containerName,
+    args: [
+      'run',
+      '--detach',
+      '--name',
+      containerName,
+      '--publish',
+      '127.0.0.1::5432',
+      '--env',
+      `POSTGRES_DB=${database}`,
+      '--env',
+      `POSTGRES_USER=${user}`,
+      '--env',
+      'POSTGRES_PASSWORD',
+      DISPOSABLE_POSTGRES_IMAGE,
+    ],
   };
 }
 
-async function runCompose(
+async function runDocker(
   args: string[],
+  environment: NodeJS.ProcessEnv = process.env,
 ): Promise<{ stdout: string; stderr: string }> {
-  return execFile('docker', [...COMPOSE_ARGUMENTS, ...args], {
-    env: schemaProofEnvironment(),
-  });
+  return execFile('docker', args, { env: environment });
 }
 
-async function dumpSchema(database: string, user: string): Promise<string> {
-  const result = await runCompose([
+function postgresReadinessCommand(
+  containerName: string,
+  database: string,
+  user: string,
+): string[] {
+  return [
     'exec',
-    '-T',
-    'postgres',
+    containerName,
+    'psql',
+    '--username',
+    user,
+    '--dbname',
+    database,
+    '--command',
+    'SELECT 1',
+  ];
+}
+
+async function waitForPostgres(
+  containerName: string,
+  database: string,
+  user: string,
+): Promise<void> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 60; attempt += 1) {
+    try {
+      await runDocker(postgresReadinessCommand(containerName, database, user));
+      return;
+    } catch (error) {
+      lastError = error;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+  }
+  throw lastError instanceof Error
+    ? lastError
+    : new Error('Disposable PostgreSQL did not become ready');
+}
+
+async function publishedPostgresPort(containerName: string): Promise<number> {
+  const { stdout } = await runDocker(['port', containerName, '5432/tcp']);
+  const match = stdout.trim().match(/:(\d+)$/u);
+  if (match === null) {
+    throw new Error('Disposable PostgreSQL did not publish a host port');
+  }
+  return Number(match[1]);
+}
+
+async function dumpSchema(
+  containerName: string,
+  database: string,
+  user: string,
+): Promise<string> {
+  const result = await runDocker([
+    'exec',
+    containerName,
     'pg_dump',
     '--schema-only',
     '--no-owner',
@@ -903,31 +957,23 @@ async function assertExactAppliedOwnedCatalog(
 }
 
 async function runDisposableSchemaProof(): Promise<void> {
-  const services = (await runCompose(['config', '--services'])).stdout
-    .trim()
-    .split('\n');
-  assertSchemaProofPreconditions(services);
-  await runCompose(['up', '-d', '--wait', 'postgres']);
-
+  const runId = `${process.pid}-${randomUUID()}`;
   const database = `sigra_schema_proof_${process.pid}`;
-  const user = process.env.DATABASE_USER ?? 'sigra_phase0_dev';
-  const password = process.env.SIGRA_POSTGRES_PASSWORD ?? 'schema-proof';
-  const port = Number(process.env.SIGRA_POSTGRES_PORT ?? 55439);
+  const user = `schema_proof_${process.pid}`;
+  const password = randomUUID();
+  const plan = createDisposablePostgresPlan(runId, database, user);
+  const environment = {
+    ...process.env,
+    POSTGRES_PASSWORD: password,
+  };
+  let started = false;
   let proof: DataSource | undefined;
 
   await runWithCleanup(async () => {
-    await runCompose([
-      'exec',
-      '-T',
-      'postgres',
-      'psql',
-      '-U',
-      user,
-      '-d',
-      'postgres',
-      '-c',
-      `CREATE DATABASE "${database}"`,
-    ]);
+    await runDocker(plan.args, environment);
+    started = true;
+    await waitForPostgres(plan.containerName, database, user);
+    const port = await publishedPostgresPort(plan.containerName);
     proof = new DataSource({
       ...dataSource.options,
       host: '127.0.0.1',
@@ -944,7 +990,7 @@ async function runDisposableSchemaProof(): Promise<void> {
     });
     await proof.initialize();
     await proof.runMigrations();
-    const beforeDump = await dumpSchema(database, user);
+    const beforeDump = await dumpSchema(plan.containerName, database, user);
     const beforeExtensions = await extensionDeclarations(proof);
     const runner = proof.createQueryRunner();
     try {
@@ -966,36 +1012,16 @@ async function runDisposableSchemaProof(): Promise<void> {
       await proof.query(`SELECT to_regclass('public.refresh_operations')`),
     ).toEqual([{ to_regclass: null }]);
     expect(await extensionDeclarations(proof)).toEqual(beforeExtensions);
-    assertEqualSchemaDumps(beforeDump, await dumpSchema(database, user));
+    assertEqualSchemaDumps(
+      beforeDump,
+      await dumpSchema(plan.containerName, database, user),
+    );
   }, [
     async () => proof?.destroy(),
     async () =>
-      runCompose([
-        'exec',
-        '-T',
-        'postgres',
-        'psql',
-        '-U',
-        user,
-        '-d',
-        'postgres',
-        '-c',
-        `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${database}'`,
-      ]).then(() => undefined),
-    async () =>
-      runCompose([
-        'exec',
-        '-T',
-        'postgres',
-        'psql',
-        '-U',
-        user,
-        '-d',
-        'postgres',
-        '-c',
-        `DROP DATABASE IF EXISTS "${database}"`,
-      ]).then(() => undefined),
-    async () => runCompose(['down']).then(() => undefined),
+      started
+        ? runDocker(['rm', '--force', plan.containerName]).then(() => undefined)
+        : undefined,
   ]);
 }
 
@@ -1446,13 +1472,28 @@ describe('PostgreSQL entity metadata', () => {
     ).rejects.toMatchObject({ errors: [primary, cleanupOne, cleanupTwo] });
   });
 
-  it('rejects missing Compose postgres service and pg_dump failures', () => {
-    expect(() => assertSchemaProofPreconditions(['redis'])).toThrow(
-      'Compose service "postgres" is required',
-    );
-    expect(() =>
-      assertSchemaProofPreconditions(['postgres'], 1, 'not found'),
-    ).toThrow('pg_dump failed: not found');
+  it('plans a uniquely named PostgreSQL 16 container with a dynamic host port and no volume', () => {
+    const plan = createDisposablePostgresPlan('test-run');
+
+    expect(plan).toEqual({
+      containerName: 'sigra-schema-proof-test-run',
+      args: [
+        'run',
+        '--detach',
+        '--name',
+        'sigra-schema-proof-test-run',
+        '--publish',
+        '127.0.0.1::5432',
+        '--env',
+        'POSTGRES_DB=schema_proof',
+        '--env',
+        'POSTGRES_USER=schema_proof',
+        '--env',
+        'POSTGRES_PASSWORD',
+        'postgres:16-alpine',
+      ],
+    });
+    expect(plan.args).not.toEqual(expect.arrayContaining(['55439', '--volume']));
   });
 
   it('reports a bounded dump mismatch without normalizing SQL semantics', () => {
@@ -1489,7 +1530,21 @@ describe('PostgreSQL entity metadata', () => {
     expect(() => assertExactEntityMetadata(drifted, 'auth_sessions')).toThrow();
   });
 
-  it('proves the applied catalog and canonical rollback with the Compose PostgreSQL service', async () => {
+  it('proves the applied catalog and canonical rollback with disposable PostgreSQL', async () => {
     await runDisposableSchemaProof();
   }, 120_000);
+
+  it('probes the disposable database with an authenticated query before TypeORM connects', () => {
+    expect(postgresReadinessCommand('proof', 'schema_proof', 'schema_user')).toEqual([
+      'exec',
+      'proof',
+      'psql',
+      '--username',
+      'schema_user',
+      '--dbname',
+      'schema_proof',
+      '--command',
+      'SELECT 1',
+    ]);
+  });
 });

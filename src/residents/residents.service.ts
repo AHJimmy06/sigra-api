@@ -49,7 +49,7 @@ export class ResidentsService {
     if (search) {
       query.andWhere(
         '(resident.name ILIKE :search OR resident.phone ILIKE :search OR user.email ILIKE :search OR unit.code ILIKE :search)',
-        { search: `%${search}%` },
+        { search: `%${search.trim().toLowerCase()}%` },
       );
     }
     if (status !== undefined) {
@@ -113,6 +113,7 @@ export class ResidentsService {
             unitId: dto.unitId,
           }),
         );
+        resident.unit = unit;
         const user = await users.save(
           users.create({
             email,
@@ -128,7 +129,7 @@ export class ResidentsService {
           resourceId: resident.id,
           metadata: { unitId: resident.unitId },
         });
-        return { ...resident, email: user.email };
+        return mapResidentResponse(resident, user.email);
       });
     } catch (error) {
       if (isUniqueViolation(error))
@@ -139,7 +140,8 @@ export class ResidentsService {
 
   async update(id: string, dto: UpdateResidentDto, actor: AuthUser) {
     dto = normalizeResidentInput(dto);
-    return this.dataSource.transaction(async (manager) => {
+    try {
+      return await this.dataSource.transaction(async (manager) => {
       const residents = manager.getRepository(Resident);
       const users = manager.getRepository(User);
       const requiresActiveUnit = dto.unitId !== undefined || dto.active === true;
@@ -166,19 +168,33 @@ export class ResidentsService {
 
       const resident = await residents.findOne({
         where: { id },
-        lock: { mode: 'pessimistic_write' },
+        lock: { mode: 'pessimistic_write', tables: ['residents'] },
       });
       if (!resident) throw new NotFoundException('Resident not found');
       if (requiresActiveUnit && !lockedUnitIds.has(resident.unitId)) {
         throw new ConflictException('Resident assignment changed during update');
       }
+      const user = await users.findOne({
+        where: { residentId: id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!user) throw new ConflictException('Resident identity must be intact');
+      if (dto.email !== undefined && dto.email !== user.email) {
+        if (await users.exists({ where: { email: dto.email } })) {
+          throw new ConflictException('Email is already registered');
+        }
+        user.email = dto.email;
+        await users.save(user);
+      }
       const previousActive = resident.active;
       const saved = await residents.save(residents.merge(resident, dto));
+      saved.unit = resident.unit;
+      if (!saved.unit) {
+        saved.unit = await manager
+          .getRepository(ResidentialUnit)
+          .findOneByOrFail({ id: saved.unitId });
+      }
       if (dto.active !== undefined) {
-        await users.findOne({
-          where: { residentId: id },
-          lock: { mode: 'pessimistic_write' },
-        });
         await users.update({ residentId: id }, { active: dto.active });
       }
       await this.audit.record(manager, {
@@ -196,8 +212,14 @@ export class ResidentsService {
             ? {}
             : { active: { from: previousActive, to: dto.active } },
       });
-      return saved;
-    });
+      return mapResidentResponse(saved, user.email);
+      });
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new ConflictException('Email is already registered');
+      }
+      throw error;
+    }
   }
 
   async remove(id: string, actor: AuthUser) {
@@ -225,7 +247,7 @@ export class ResidentsService {
       if (!unit) throw new ConflictException('Resident unit must exist');
       const resident = await residents.findOne({
         where: { id },
-        lock: { mode: 'pessimistic_write' },
+        lock: { mode: 'pessimistic_write', tables: ['residents'] },
       });
       if (!resident) throw new NotFoundException('Resident not found');
       if (resident.archivedAt) {
@@ -250,6 +272,7 @@ export class ResidentsService {
       user.active = false;
       await users.save(user);
       const saved = await residents.save(resident);
+      saved.unit = unit;
       await this.audit.record(manager, {
         actor,
         action: 'RESIDENT_ARCHIVED',
@@ -281,7 +304,7 @@ export class ResidentsService {
       if (!unit) throw new ConflictException('Unit must exist and be active');
       const resident = await residents.findOne({
         where: { id },
-        lock: { mode: 'pessimistic_write' },
+        lock: { mode: 'pessimistic_write', tables: ['residents'] },
       });
       if (!resident) throw new NotFoundException('Resident not found');
       if (!resident.archivedAt) {
@@ -306,6 +329,7 @@ export class ResidentsService {
       user.active = false;
       await users.save(user);
       const saved = await residents.save(resident);
+      saved.unit = unit;
       await this.audit.record(manager, {
         actor,
         action: 'RESIDENT_RESTORED',

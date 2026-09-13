@@ -10,7 +10,6 @@ import {
   Patch,
   Post,
   Query,
-  UsePipes,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -21,15 +20,14 @@ import {
   CreateResidentDto,
   PaginatedResidentsResponseDto,
   ResidentResponseDto,
-  ResidentUpdateResponseDto,
   UpdateResidentDto,
 } from './resident.dto';
 import { ResidentsService } from './residents.service';
 import type { AuthUser } from '../auth/auth.types';
 import { CurrentUser } from '../common/current-user.decorator';
 import { ResidentPaginationQueryDto } from '../common/pagination.dto';
-import { NonEmptyPatchPipe } from '../common/non-empty-patch.pipe';
-import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
+import { assertNonEmptyPatch } from '../common/non-empty-patch.pipe';
+import { ApiCreatedResponse, ApiOkResponse, ApiQuery } from '@nestjs/swagger';
 
 @Controller('residents')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -39,12 +37,22 @@ export class ResidentsController {
 
   @Get()
   @ApiOkResponse({ type: PaginatedResidentsResponseDto })
+  @ApiQuery({
+    name: 'includeArchived',
+    required: false,
+    enum: ['true', 'false'],
+  })
   list(@Query() query: ResidentPaginationQueryDto) {
     return this.residentsService.list(query);
   }
 
   @Get(':id')
   @ApiOkResponse({ type: ResidentResponseDto })
+  @ApiQuery({
+    name: 'includeArchived',
+    required: false,
+    enum: ['true', 'false'],
+  })
   findOne(
     @Param('id', ParseUUIDPipe) id: string,
     @Query() query: ResidentPaginationQueryDto,
@@ -60,17 +68,17 @@ export class ResidentsController {
   }
 
   @Patch(':id')
-  @UsePipes(NonEmptyPatchPipe)
-  @ApiOkResponse({ type: ResidentUpdateResponseDto })
+  @ApiOkResponse({ type: ResidentResponseDto })
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateResidentDto,
     @CurrentUser() user: AuthUser,
   ) {
-    return this.residentsService.update(id, dto, user);
+    return this.residentsService.update(id, assertNonEmptyPatch(dto), user);
   }
 
   @Post(':id/archive')
+  @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: ResidentResponseDto })
   archive(
     @Param('id', ParseUUIDPipe) id: string,
@@ -80,6 +88,7 @@ export class ResidentsController {
   }
 
   @Post(':id/restore')
+  @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: ResidentResponseDto })
   restore(
     @Param('id', ParseUUIDPipe) id: string,

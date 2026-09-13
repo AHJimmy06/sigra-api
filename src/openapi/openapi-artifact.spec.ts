@@ -155,4 +155,45 @@ describe('Phase 0 OpenAPI artifact', () => {
       '#/components/schemas/ResidentUnitResponseDto',
     );
   });
+
+  it.each([
+    [
+      '/api/residents',
+      ['unitId', 'status', 'search', 'page', 'pageSize', 'includeArchived'],
+    ],
+    ['/api/units', ['status', 'search', 'page', 'pageSize', 'includeArchived']],
+  ])('documents archive filters for GET %s', (path, parameters) => {
+    const operation = document.paths[path]?.get;
+    if (!operation) throw new Error(`Missing GET ${path}`);
+
+    expect(
+      operation.parameters
+        ?.map((parameter) =>
+          '$ref' in parameter ? parameter.$ref : parameter.name,
+        )
+        .sort(),
+    ).toEqual([...parameters].sort());
+  });
+
+  it.each([
+    ['/api/residents/{id}/archive', '#/components/schemas/ResidentResponseDto'],
+    ['/api/residents/{id}/restore', '#/components/schemas/ResidentResponseDto'],
+    ['/api/units/{id}/archive', '#/components/schemas/UnitResponseDto'],
+    ['/api/units/{id}/restore', '#/components/schemas/UnitResponseDto'],
+  ])('documents protected archive lifecycle POST %s', (path, schemaRef) => {
+    const operation = document.paths[path]?.post;
+    if (!operation) throw new Error(`Missing POST ${path}`);
+
+    expect(operation.security).toEqual([{ bearer: [] }]);
+    expect(operation.responses['200']).toHaveProperty(
+      'content.application/json.schema.$ref',
+      schemaRef,
+    );
+    for (const status of ['400', '401', '403', '404', '409']) {
+      expect(operation.responses[status]).toHaveProperty(
+        'content.application/json.schema.$ref',
+        '#/components/schemas/Phase0Error',
+      );
+    }
+  });
 });

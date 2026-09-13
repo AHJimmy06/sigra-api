@@ -9,6 +9,7 @@ import {
   MinLength,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 
 type ResidentProjection = {
   id: string;
@@ -41,6 +42,9 @@ export class CreateResidentDto {
   @Matches(/^(?=(?:\D*\d){7,})\+?[0-9\s().-]+(?:\s?(?:ext\.?|x)\s?\d+)?$/i)
   phone?: string;
   @IsUUID() unitId!: string;
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim().toLowerCase() : value,
+  )
   @IsEmail() email!: string;
   @IsString() @MinLength(8) @MaxLength(72) password!: string;
 }
@@ -54,6 +58,12 @@ export class UpdateResidentDto {
   @Matches(/^(?=(?:\D*\d){7,})\+?[0-9\s().-]+(?:\s?(?:ext\.?|x)\s?\d+)?$/i)
   phone?: string;
   @IsOptional() @IsUUID() unitId?: string;
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim().toLowerCase() : value,
+  )
+  @IsEmail()
+  email?: string;
   @IsOptional() @IsBoolean() active?: boolean;
 }
 
@@ -74,18 +84,6 @@ export class ResidentResponseDto {
   @ApiProperty({ nullable: true }) phone!: string | null;
   @ApiProperty() active!: boolean;
   @ApiProperty({ format: 'date-time', nullable: true }) archivedAt!: string | null;
-  @ApiProperty({ format: 'uuid' }) unitId!: string;
-  @ApiProperty({ type: ResidentUnitResponseDto })
-  unit!: ResidentUnitResponseDto;
-  @ApiProperty({ format: 'date-time' }) createdAt!: string;
-  @ApiProperty({ format: 'date-time' }) updatedAt!: string;
-}
-
-export class ResidentUpdateResponseDto {
-  @ApiProperty({ format: 'uuid' }) id!: string;
-  @ApiProperty() name!: string;
-  @ApiProperty({ nullable: true }) phone!: string | null;
-  @ApiProperty() active!: boolean;
   @ApiProperty({ format: 'uuid' }) unitId!: string;
   @ApiProperty({ type: ResidentUnitResponseDto })
   unit!: ResidentUnitResponseDto;
