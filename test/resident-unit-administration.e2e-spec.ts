@@ -1,6 +1,4 @@
-import { execFile as execFileCallback } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { promisify } from 'node:util';
 import { INestApplication } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
@@ -10,48 +8,31 @@ import { Role } from '../src/common/role.enum';
 import { HardenResidentIdentity1724600006000 } from '../src/migrations/1724600006000-HardenResidentIdentity';
 import { HardenUnitIdentity1724600005000 } from '../src/migrations/1724600005000-HardenUnitIdentity';
 import { configureHttpApp } from '../src/common/http/configure-http-app';
+import { startDisposablePostgres } from './support/disposable-postgres';
 
-const execFile = promisify(execFileCallback);
 const password = 'resident-e2e-password';
 const actorId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const guardId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 
-type Database = { name: string; user: string; password: string; port: number };
+type Database = Awaited<ReturnType<typeof startDisposablePostgres>>['options'];
 
+// Keep database lifecycle ownership in the shared disposable PostgreSQL helper.
 describe('Resident and unit administration against PostgreSQL', () => {
   let app: INestApplication;
-  let database: Database;
+  let postgres: Awaited<ReturnType<typeof startDisposablePostgres>>;
   let dataSource: DataSource;
-  let containerName: string | undefined;
   let adminToken: string;
 
   beforeAll(async () => {
-    const suffix = `${process.pid}-${randomUUID()}`;
-    containerName = `sigra-resident-unit-proof-${suffix}`;
-    database = {
-      name: `resident_unit_${process.pid}`,
-      user: `resident_unit_${process.pid}`,
-      password: randomUUID(),
-      port: 0,
-    };
-    await execFile(
-      'docker',
-      [
-        'run', '--detach', '--name', containerName, '--publish', '127.0.0.1::5432',
-        '--env', `POSTGRES_DB=${database.name}`, '--env', `POSTGRES_USER=${database.user}`,
-        '--env', 'POSTGRES_PASSWORD', 'postgres:16-alpine',
-      ],
-      { env: { ...process.env, POSTGRES_PASSWORD: database.password } },
-    );
-    await waitForPostgres(containerName, database);
-    database.port = await publishedPort(containerName);
+    postgres = await startDisposablePostgres('resident-unit-proof');
+    const database = postgres.options;
     Object.assign(process.env, {
       NODE_ENV: 'development',
       DATABASE_HOST: '127.0.0.1',
       DATABASE_PORT: String(database.port),
-      DATABASE_USER: database.user,
+      DATABASE_USER: database.username,
       DATABASE_PASSWORD: database.password,
-      DATABASE_NAME: database.name,
+      DATABASE_NAME: database.database,
       JWT_SECRET: 'resident-unit-e2e-secret-with-more-than-32-characters',
       PASS_SECRET_ENCRYPTION_KEY: Buffer.alloc(32, 3).toString('base64'),
       SESSION_DIGEST_ACTIVE_VERSION: 'digest-v1',
@@ -78,9 +59,21 @@ describe('Resident and unit administration against PostgreSQL', () => {
   }, 120_000);
 
   afterAll(async () => {
-    await app?.close();
-    if (dataSource?.isInitialized) await dataSource.destroy();
-    if (containerName) await execFile('docker', ['rm', '--force', containerName]);
+    const errors: unknown[] = [];
+    for (const cleanup of [
+      () => app?.close(),
+      () => (dataSource?.isInitialized ? dataSource.destroy() : undefined),
+      () => postgres?.stop(),
+    ]) {
+      try {
+        await cleanup();
+      } catch (error) {
+        errors.push(error);
+      }
+    }
+    if (errors.length) {
+      throw new AggregateError(errors, 'Resident E2E cleanup failed');
+    }
   });
 
   it('returns real Phase 0 400, 401, 403, 404, and 409 errors without persistence', async () => {
@@ -329,28 +322,7 @@ describe('Resident and unit administration against PostgreSQL', () => {
 });
 
 function databaseOptions(database: Database) {
-  return { host: '127.0.0.1', port: database.port, username: database.user, password: database.password, database: database.name };
-}
-
-async function waitForPostgres(container: string, database: Database) {
-  let error: unknown;
-  for (let attempt = 0; attempt < 60; attempt += 1) {
-    try {
-      await execFile('docker', ['exec', container, 'psql', '--username', database.user, '--dbname', database.name, '--command', 'SELECT 1']);
-      return;
-    } catch (caught) {
-      error = caught;
-      await new Promise((resolve) => setTimeout(resolve, 250));
-    }
-  }
-  throw error;
-}
-
-async function publishedPort(container: string) {
-  const { stdout } = await execFile('docker', ['port', container, '5432/tcp']);
-  const port = Number(stdout.trim().match(/:(\d+)$/u)?.[1]);
-  if (!port) throw new Error('PostgreSQL did not publish a dynamic loopback port');
-  return port;
+  return { host: database.host, port: database.port, username: database.username, password: database.password, database: database.database };
 }
 
 async function seedUser(dataSource: DataSource, id: string, email: string, role: Role) {
