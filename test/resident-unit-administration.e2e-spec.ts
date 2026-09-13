@@ -330,7 +330,9 @@ async function seedUser(dataSource: DataSource, id: string, email: string, role:
 }
 
 async function provePhaseTwoMigrationRollback(dataSource: DataSource) {
-  for (let count = 0; count < 4; count += 1) await dataSource.undoLastMigration();
+  for (let count = 0; count < 5; count += 1) {
+    await dataSource.undoLastMigration();
+  }
   expect(await dataSource.query(`SELECT count(*) AS count FROM information_schema.columns WHERE table_name IN ('units', 'residents') AND column_name IN ('archived_at', 'archived_by_user_id')`)).toEqual([{ count: '0' }]);
   expect(await dataSource.query(`SELECT conname FROM pg_constraint WHERE conname IN ('units_code_key', 'users_email_key') ORDER BY conname`)).toEqual([{ conname: 'units_code_key' }, { conname: 'users_email_key' }]);
   const runner = dataSource.createQueryRunner();

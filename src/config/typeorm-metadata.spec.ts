@@ -9,6 +9,7 @@ import { AddAuditLogs1724600001000 } from '../migrations/1724600001000-AddAuditL
 import { HardenAccessEvents1724600002000 } from '../migrations/1724600002000-HardenAccessEvents';
 import { EnforceUnitParkingLimit1724600003000 } from '../migrations/1724600003000-EnforceUnitParkingLimit';
 import { AddAuthSessionSchema1724600004000 } from '../migrations/1724600004000-AddAuthSessionSchema';
+import { AddAnnouncementAuthorSchema1724600009000 } from '../migrations/1724600009000-AddAnnouncementAuthorSchema';
 
 const GENERATED_DUMP_COMMENT =
   /^-- (?:PostgreSQL database dump|Dumped from database version|Dumped by pg_dump version|PostgreSQL database dump complete).*$/;
@@ -1438,6 +1439,56 @@ describe('PostgreSQL entity metadata', () => {
     ]);
   });
 
+  it('registers only the additive 3A author schema with exact rollback order', async () => {
+    const migration = new AddAnnouncementAuthorSchema1724600009000();
+    const up: string[] = [];
+    const down: string[] = [];
+    await migration.up({
+      query: (sql: string) => Promise.resolve(up.push(sql)),
+    } as never);
+    await migration.down({
+      query: (sql: string) => Promise.resolve(down.push(sql)),
+    } as never);
+
+    expect(
+      dataSource.migrations.filter((item) => item.name === migration.name),
+    ).toHaveLength(1);
+    expect(dataSource.migrations.at(-1)?.name).toBe(migration.name);
+    expect(up.join('\n')).toContain('"display_name" varchar(120)');
+    expect(up.join('\n')).toContain('"author_id_snapshot" uuid');
+    expect(up.join('\n')).toContain(
+      '"ck_announcements_live_author_matches_snapshot"',
+    );
+    expect(up.join('\n')).toContain(
+      '"idx_announcements_admin_status_updated_id"',
+    );
+    expect(up.join('\n')).not.toMatch(
+      /announcement_status|author_user_id.*REFERENCES|pg_trgm/,
+    );
+    const announcement = dataSource.getMetadata('announcements');
+    expect(
+      announcement.findColumnWithPropertyName('authorEmailSnapshot')
+        ?.isNullable,
+    ).toBe(true);
+    expect(
+      announcement.relations.find(
+        (relation) => relation.propertyName === 'author',
+      )?.createForeignKeyConstraints,
+    ).toBe(false);
+    expect(down).toEqual([
+      'DROP INDEX "idx_announcements_author_user_id"',
+      'DROP INDEX "idx_announcements_admin_status_updated_id"',
+      'ALTER TABLE "announcements" DROP CONSTRAINT "ck_announcements_published_at"',
+      'ALTER TABLE "announcements" DROP CONSTRAINT "ck_announcements_live_author_matches_snapshot"',
+      'ALTER TABLE "announcements" DROP CONSTRAINT "ck_announcements_author_snapshot"',
+      'ALTER TABLE "users" DROP CONSTRAINT "ck_users_display_name_valid"',
+      'ALTER TABLE "announcements" DROP COLUMN "author_email_snapshot"',
+      'ALTER TABLE "announcements" DROP COLUMN "author_display_name_snapshot"',
+      'ALTER TABLE "announcements" DROP COLUMN "author_id_snapshot"',
+      'ALTER TABLE "users" DROP COLUMN "display_name"',
+    ]);
+  });
+
   it('canonicalizes only generated pg_dump headers and whitespace', () => {
     const dump = [
       '-- PostgreSQL database dump',
@@ -1493,7 +1544,9 @@ describe('PostgreSQL entity metadata', () => {
         'postgres:16-alpine',
       ],
     });
-    expect(plan.args).not.toEqual(expect.arrayContaining(['55439', '--volume']));
+    expect(plan.args).not.toEqual(
+      expect.arrayContaining(['55439', '--volume']),
+    );
   });
 
   it('reports a bounded dump mismatch without normalizing SQL semantics', () => {
@@ -1535,7 +1588,9 @@ describe('PostgreSQL entity metadata', () => {
   }, 120_000);
 
   it('probes the disposable database with an authenticated query before TypeORM connects', () => {
-    expect(postgresReadinessCommand('proof', 'schema_proof', 'schema_user')).toEqual([
+    expect(
+      postgresReadinessCommand('proof', 'schema_proof', 'schema_user'),
+    ).toEqual([
       'exec',
       'proof',
       'psql',
