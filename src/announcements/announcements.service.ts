@@ -118,6 +118,9 @@ export class AnnouncementsService {
     return this.runMutation(
       id,
       async (manager, announcements, announcement) => {
+        if (announcement.status === AnnouncementStatus.ARCHIVED) {
+          throw new ConflictException('Archived announcements are read-only');
+        }
         if (command.kind === 'CONTENT') {
           const changedFields = (['title', 'body'] as const).filter(
             (key) =>
@@ -136,11 +139,50 @@ export class AnnouncementsService {
           });
           return mapAnnouncementResponse(saved);
         }
-        throw new ConflictException('Publication transitions are not available');
+        const target = command.published
+          ? AnnouncementStatus.PUBLISHED
+          : AnnouncementStatus.DRAFT;
+        if (announcement.status === target)
+          return mapAnnouncementResponse(announcement);
+        const from = announcement.status;
+        announcement.status = target;
+        if (command.published && !announcement.publishedAt)
+          announcement.publishedAt = new Date();
+        const saved = await announcements.save(announcement);
+        await this.audit.record(manager, {
+          actor,
+          action: command.published
+            ? 'ANNOUNCEMENT_PUBLISHED'
+            : 'ANNOUNCEMENT_WITHDRAWN',
+          resourceType: 'ANNOUNCEMENT',
+          resourceId: id,
+          metadata: { status: { from, to: target } },
+        });
+        return mapAnnouncementResponse(saved);
       },
     );
   }
 
+  archive(id: string, actor: AuthUser) {
+    return this.runMutation(
+      id,
+      async (manager, announcements, announcement) => {
+        if (announcement.status === AnnouncementStatus.ARCHIVED)
+          return mapAnnouncementResponse(announcement);
+        const from = announcement.status;
+        announcement.status = AnnouncementStatus.ARCHIVED;
+        const saved = await announcements.save(announcement);
+        await this.audit.record(manager, {
+          actor,
+          action: 'ANNOUNCEMENT_ARCHIVED',
+          resourceType: 'ANNOUNCEMENT',
+          resourceId: id,
+          metadata: { status: { from, to: AnnouncementStatus.ARCHIVED } },
+        });
+        return mapAnnouncementResponse(saved);
+      },
+    );
+  }
 
   private runMutation<T>(
     id: string,

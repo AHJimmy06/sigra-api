@@ -23,6 +23,7 @@ export const SAFE_PUBLIC_4XX_MESSAGES = new Set([
   'Invalid credentials',
   'Insufficient role',
   'Announcement not found',
+  'Archived announcements are read-only',
   'Unit not found',
   'Unit cannot be deleted while residents are linked to it',
   'Active resident not found',

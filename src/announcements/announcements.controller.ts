@@ -65,4 +65,14 @@ export class AnnouncementsController {
     return this.announcementsService.update(id, command, user);
   }
 
+  @Post(':id/archive')
+  @Roles(Role.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: AnnouncementResponseDto })
+  archive(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.announcementsService.archive(id, user);
+  }
 }
