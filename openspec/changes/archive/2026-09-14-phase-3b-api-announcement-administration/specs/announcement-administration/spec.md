@@ -1,6 +1,6 @@
 # Delta for Announcement Administration
 
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: Safe allowlisted administration responses
 
@@ -75,8 +75,6 @@ Every mutation of an existing announcement MUST pessimistically lock the row bef
 - GIVEN an archived announcement
 - WHEN an ADMIN repeats POST archive or attempts PATCH
 - THEN repeat archive returns HTTP 200 with the unchanged resource, while PATCH returns 409
-
-## ADDED Requirements
 
 ### Requirement: Phase 3B boundary
 
