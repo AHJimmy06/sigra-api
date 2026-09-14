@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return */
 import { Role } from '../common/role.enum';
+import { AnnouncementChange } from './announcement-change.entity';
+import { AnnouncementChangeClock } from './announcement-change-clock.entity';
 import { Announcement, AnnouncementStatus } from './announcement.entity';
 import { AnnouncementsService } from './announcements.service';
 
@@ -35,10 +37,21 @@ describe('AnnouncementsService', () => {
         email: ' ADMIN@EXAMPLE.COM ',
       }),
     };
+    const clocks = {
+      findOne: jest.fn().mockResolvedValue({ id: 1, value: '0' }),
+      save: jest.fn().mockResolvedValue(undefined),
+    };
+    const changes = {
+      create: jest.fn((value) => value),
+      save: jest.fn().mockResolvedValue(undefined),
+    };
     const manager = {
-      getRepository: jest.fn((entity) =>
-        entity === Announcement ? announcements : users,
-      ),
+      getRepository: jest.fn((entity) => {
+        if (entity === Announcement) return announcements;
+        if (entity === AnnouncementChangeClock) return clocks;
+        if (entity === AnnouncementChange) return changes;
+        return users;
+      }),
     };
     const audit = { record: jest.fn().mockResolvedValue(undefined) };
     const service = new AnnouncementsService(
@@ -130,7 +143,21 @@ describe('AnnouncementsService', () => {
       findOne: jest.fn().mockResolvedValue(announcement),
       save: jest.fn((value: Announcement) => Promise.resolve(value)),
     };
-    const manager = { getRepository: jest.fn().mockReturnValue(repository) };
+    const clocks = {
+      findOne: jest.fn().mockResolvedValue({ id: 1, value: '0' }),
+      save: jest.fn().mockResolvedValue(undefined),
+    };
+    const changes = {
+      create: jest.fn((value) => value),
+      save: jest.fn().mockResolvedValue(undefined),
+    };
+    const manager = {
+      getRepository: jest.fn((entity) => {
+        if (entity === Announcement) return repository;
+        if (entity === AnnouncementChangeClock) return clocks;
+        return changes;
+      }),
+    };
     const dataSource = {
       transaction: jest.fn((work: (value: typeof manager) => unknown) =>
         work(manager),
@@ -171,7 +198,21 @@ describe('AnnouncementsService', () => {
       findOne: jest.fn().mockResolvedValue(announcement),
       save: jest.fn((value: Announcement) => Promise.resolve(value)),
     };
-    const manager = { getRepository: jest.fn().mockReturnValue(repository) };
+    const clocks = {
+      findOne: jest.fn().mockResolvedValue({ id: 1, value: '0' }),
+      save: jest.fn().mockResolvedValue(undefined),
+    };
+    const changes = {
+      create: jest.fn((value) => value),
+      save: jest.fn().mockResolvedValue(undefined),
+    };
+    const manager = {
+      getRepository: jest.fn((entity) => {
+        if (entity === Announcement) return repository;
+        if (entity === AnnouncementChangeClock) return clocks;
+        return changes;
+      }),
+    };
     const dataSource = {
       transaction: jest.fn((work: (value: typeof manager) => unknown) =>
         work(manager),

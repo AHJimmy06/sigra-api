@@ -10,6 +10,7 @@ import { HardenResidentIdentity1724600006000 } from '../migrations/1724600006000
 import { AddUnitArchiveMetadata1724600007000 } from '../migrations/1724600007000-AddUnitArchiveMetadata';
 import { AddResidentArchiveMetadata1724600008000 } from '../migrations/1724600008000-AddResidentArchiveMetadata';
 import { AddAnnouncementAuthorSchema1724600009000 } from '../migrations/1724600009000-AddAnnouncementAuthorSchema';
+import { AddAnnouncementChangeFeed1724600010000 } from '../migrations/1724600010000-AddAnnouncementChangeFeed';
 
 export default new DataSource({
   type: 'postgres',
@@ -30,6 +31,7 @@ export default new DataSource({
     AddUnitArchiveMetadata1724600007000,
     AddResidentArchiveMetadata1724600008000,
     AddAnnouncementAuthorSchema1724600009000,
+    AddAnnouncementChangeFeed1724600010000,
   ],
   synchronize: false,
 });

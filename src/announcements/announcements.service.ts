@@ -12,6 +12,8 @@ import { CreateAnnouncementDto } from './announcement.dto';
 import { Announcement, AnnouncementStatus } from './announcement.entity';
 import { mapAnnouncementResponse } from './announcement.mapper';
 import { AnnouncementPatchCommand } from './announcement-patch.pipe';
+import { AnnouncementChange } from './announcement-change.entity';
+import { AnnouncementChangeClock } from './announcement-change-clock.entity';
 
 @Injectable()
 export class AnnouncementsService {
@@ -109,6 +111,7 @@ export class AnnouncementsService {
             },
           },
         });
+        await this.recordChange(manager, announcement, 'UPSERT', 'PUBLISHED');
       }
       return mapAnnouncementResponse(announcement);
     });
@@ -137,6 +140,9 @@ export class AnnouncementsService {
             resourceId: id,
             metadata: { changedFields: changedFields.sort() },
           });
+          if (saved.status === AnnouncementStatus.PUBLISHED) {
+            await this.recordChange(manager, saved, 'UPSERT', 'UPDATED');
+          }
           return mapAnnouncementResponse(saved);
         }
         const target = command.published
@@ -158,6 +164,12 @@ export class AnnouncementsService {
           resourceId: id,
           metadata: { status: { from, to: target } },
         });
+        await this.recordChange(
+          manager,
+          saved,
+          command.published ? 'UPSERT' : 'TOMBSTONE',
+          command.published ? 'PUBLISHED' : 'WITHDRAWN',
+        );
         return mapAnnouncementResponse(saved);
       },
     );
@@ -179,6 +191,9 @@ export class AnnouncementsService {
           resourceId: id,
           metadata: { status: { from, to: AnnouncementStatus.ARCHIVED } },
         });
+        if (from === AnnouncementStatus.PUBLISHED) {
+          await this.recordChange(manager, saved, 'TOMBSTONE', 'ARCHIVED');
+        }
         return mapAnnouncementResponse(saved);
       },
     );
@@ -201,5 +216,37 @@ export class AnnouncementsService {
       if (!announcement) throw new NotFoundException('Announcement not found');
       return mutation(manager, announcements, announcement);
     });
+  }
+
+  private async recordChange(
+    manager: EntityManager,
+    announcement: Announcement,
+    kind: 'UPSERT' | 'TOMBSTONE',
+    action: 'PUBLISHED' | 'UPDATED' | 'WITHDRAWN' | 'ARCHIVED',
+  ) {
+    const clocks = manager.getRepository(AnnouncementChangeClock);
+    const clock = await clocks.findOne({
+      where: { id: 1 },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!clock) throw new Error('Announcement change clock is missing');
+    const position = (BigInt(clock.value) + 1n).toString();
+    clock.value = position;
+    await clocks.save(clock);
+    const changes = manager.getRepository(AnnouncementChange);
+    await changes.save(
+      changes.create({
+        position,
+        announcementId: announcement.id,
+        kind,
+        action,
+        title: kind === 'UPSERT' ? announcement.title : null,
+        body: kind === 'UPSERT' ? announcement.body : null,
+        publishedAt: kind === 'UPSERT' ? announcement.publishedAt : null,
+        authorDisplayName:
+          kind === 'UPSERT' ? announcement.authorDisplayNameSnapshot : null,
+        occurredAt: new Date(),
+      }),
+    );
   }
 }

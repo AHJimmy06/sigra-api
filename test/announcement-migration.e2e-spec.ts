@@ -23,7 +23,7 @@ describe('announcement author schema migration', () => {
       ...postgres.options,
       migrations: (
         dataSource.options.migrations as Array<new () => MigrationInterface>
-      ).slice(0, -1),
+      ).slice(0, -2),
     });
     await database.initialize();
     await database.runMigrations();

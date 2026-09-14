@@ -10,6 +10,7 @@ import { HardenAccessEvents1724600002000 } from '../migrations/1724600002000-Har
 import { EnforceUnitParkingLimit1724600003000 } from '../migrations/1724600003000-EnforceUnitParkingLimit';
 import { AddAuthSessionSchema1724600004000 } from '../migrations/1724600004000-AddAuthSessionSchema';
 import { AddAnnouncementAuthorSchema1724600009000 } from '../migrations/1724600009000-AddAnnouncementAuthorSchema';
+import { AddAnnouncementChangeFeed1724600010000 } from '../migrations/1724600010000-AddAnnouncementChangeFeed';
 
 const GENERATED_DUMP_COMMENT =
   /^-- (?:PostgreSQL database dump|Dumped from database version|Dumped by pg_dump version|PostgreSQL database dump complete).*$/;
@@ -1453,7 +1454,7 @@ describe('PostgreSQL entity metadata', () => {
     expect(
       dataSource.migrations.filter((item) => item.name === migration.name),
     ).toHaveLength(1);
-    expect(dataSource.migrations.at(-1)?.name).toBe(migration.name);
+    expect(dataSource.migrations.at(-2)?.name).toBe(migration.name);
     expect(up.join('\n')).toContain('"display_name" varchar(120)');
     expect(up.join('\n')).toContain('"author_id_snapshot" uuid');
     expect(up.join('\n')).toContain(
@@ -1487,6 +1488,12 @@ describe('PostgreSQL entity metadata', () => {
       'ALTER TABLE "announcements" DROP COLUMN "author_id_snapshot"',
       'ALTER TABLE "users" DROP COLUMN "display_name"',
     ]);
+  });
+
+  it('registers the additive 3C change-feed migration after the immutable 3A migration', () => {
+    expect(dataSource.migrations.at(-1)?.name).toBe(
+      new AddAnnouncementChangeFeed1724600010000().name,
+    );
   });
 
   it('canonicalizes only generated pg_dump headers and whitespace', () => {

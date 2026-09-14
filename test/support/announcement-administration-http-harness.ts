@@ -48,6 +48,10 @@ export type AnnouncementAdministrationHttpHarness = {
   announcementCount(): Promise<number>;
   auditRows(resourceId: string): Promise<Array<Record<string, unknown>>>;
   auditCount(action: string, resourceId: string): Promise<number>;
+  changeRows(
+    announcementId: string,
+  ): Promise<Array<{ position: string; kind: string; action: string }>>;
+  changeClockValue(): Promise<string>;
   persistenceSnapshot(id: string): Promise<Record<string, unknown>>;
   holdAnnouncementLock(id: string): Promise<{
     waitForBlocked(count?: number): Promise<void>;
@@ -168,6 +172,17 @@ export async function startAnnouncementAdministrationHttpHarness(
           )) as Array<{ count: string }>
         )[0].count,
       );
+    const changeRows = async (announcementId: string) =>
+      dataSource!.query(
+        'SELECT position, kind, action FROM announcement_changes WHERE announcement_id = $1 ORDER BY position',
+        [announcementId],
+      ) as Promise<Array<{ position: string; kind: string; action: string }>>;
+    const changeClockValue = async () => {
+      const [clock] = (await dataSource!.query(
+        'SELECT value FROM announcement_change_clock WHERE id = 1',
+      )) as Array<{ value: string }>;
+      return clock.value;
+    };
     const api: AnnouncementAdministrationHttpHarness = {
       app,
       dataSource,
@@ -202,6 +217,8 @@ export async function startAnnouncementAdministrationHttpHarness(
       },
       auditRows,
       auditCount,
+      changeRows,
+      changeClockValue,
       async persistenceSnapshot(id: string) {
         return {
           announcement: await announcementState(id),
