@@ -155,6 +155,51 @@ describe('AnnouncementsService', () => {
     );
   });
 
+  it('preserves original publishedAt and changes explicit state on withdrawal', async () => {
+    const publishedAt = new Date('2026-09-07T12:00:00.000Z');
+    const announcement = {
+      id: 'announcement-1',
+      publishedAt,
+      status: AnnouncementStatus.PUBLISHED,
+      authorIdSnapshot: 'admin-1',
+      authorDisplayNameSnapshot: null,
+      authorEmailSnapshot: 'admin@example.com',
+      createdAt: publishedAt,
+      updatedAt: publishedAt,
+    } as Announcement;
+    const repository = {
+      findOne: jest.fn().mockResolvedValue(announcement),
+      save: jest.fn((value: Announcement) => Promise.resolve(value)),
+    };
+    const manager = { getRepository: jest.fn().mockReturnValue(repository) };
+    const dataSource = {
+      transaction: jest.fn((work: (value: typeof manager) => unknown) =>
+        work(manager),
+      ),
+    };
+    const audit = { record: jest.fn().mockResolvedValue(undefined) };
+    const service = new AnnouncementsService(
+      {} as never,
+      dataSource as never,
+      audit,
+    );
+
+    await expect(
+      service.update(
+        announcement.id,
+        { kind: 'PUBLICATION', published: false },
+        actor,
+      ),
+    ).resolves.toMatchObject({
+      publishedAt: publishedAt.toISOString(),
+      status: AnnouncementStatus.DRAFT,
+    });
+    expect(audit.record).toHaveBeenCalledWith(
+      manager,
+      expect.objectContaining({ action: 'ANNOUNCEMENT_WITHDRAWN' }),
+    );
+  });
+
   it('uses requested admin filters and explicit archived access', async () => {
     const createQuery = () => ({
       leftJoin: jest.fn().mockReturnThis(),
@@ -243,4 +288,59 @@ describe('AnnouncementsService', () => {
     expect(JSON.stringify(result)).not.toContain('password_hash');
   });
 
+  it('locks archive mutations once and returns repeated terminal archives without writes', async () => {
+    const timestamp = new Date('2026-09-13T10:00:00.000Z');
+    const announcement = {
+      id: 'announcement-1',
+      title: 'Archive target',
+      body: 'A complete archive target body',
+      status: AnnouncementStatus.DRAFT,
+      publishedAt: null,
+      authorIdSnapshot: 'admin-1',
+      authorDisplayNameSnapshot: 'Admin',
+      authorEmailSnapshot: 'admin@example.com',
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    } as Announcement;
+    const repository = {
+      findOne: jest.fn().mockResolvedValue(announcement),
+      save: jest.fn((value: Announcement) => Promise.resolve(value)),
+    };
+    const manager = { getRepository: jest.fn().mockReturnValue(repository) };
+    const audit = { record: jest.fn().mockResolvedValue(undefined) };
+    const service = new AnnouncementsService(
+      {} as never,
+      {
+        transaction: jest.fn((work: (value: typeof manager) => unknown) =>
+          work(manager),
+        ),
+      } as never,
+      audit,
+    );
+
+    await expect(
+      service.archive(announcement.id, actor),
+    ).resolves.toMatchObject({ status: AnnouncementStatus.ARCHIVED });
+    expect(repository.findOne).toHaveBeenCalledWith({
+      where: { id: announcement.id },
+      lock: { mode: 'pessimistic_write' },
+    });
+    expect(audit.record).toHaveBeenCalledWith(
+      manager,
+      expect.objectContaining({
+        action: 'ANNOUNCEMENT_ARCHIVED',
+        metadata: {
+          status: {
+            from: AnnouncementStatus.DRAFT,
+            to: AnnouncementStatus.ARCHIVED,
+          },
+        },
+      }),
+    );
+    const writes = repository.save.mock.calls.length;
+    const audits = audit.record.mock.calls.length;
+    await service.archive(announcement.id, actor);
+    expect(repository.save).toHaveBeenCalledTimes(writes);
+    expect(audit.record).toHaveBeenCalledTimes(audits);
+  });
 });
