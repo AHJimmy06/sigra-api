@@ -29,10 +29,10 @@ test-first command/results receipts with the completed work unit.
 
 ## 3D: Cursor/feed internals
 
-- [ ] 3D.1 RED: test paging, validation, replay, ordering, repeatable-read, and clock behavior in `src/announcements/announcement-cursor.spec.ts` and `src/announcements/resident-announcement-feed.service.spec.ts`; run `npm test -- --runInBand --runTestsByPath src/announcements/announcement-cursor.spec.ts src/announcements/resident-announcement-feed.service.spec.ts`.
-- [ ] 3D.2 GREEN: create `src/announcements/announcement-cursor.ts` and `src/announcements/resident-announcement-feed.service.ts`; run `npm test -- --runInBand --runTestsByPath src/announcements/announcement-cursor.spec.ts src/announcements/resident-announcement-feed.service.spec.ts`.
-- [ ] 3D.3 RED: add concurrency proof in `test/announcement-feed-concurrency.e2e-spec.ts`; run `npm run test:e2e -- --runInBand --runTestsByPath test/announcement-feed-concurrency.e2e-spec.ts`.
-- [ ] 3D.4 GREEN: run `npm run test:e2e -- --runInBand --runTestsByPath test/announcement-feed-concurrency.e2e-spec.ts`; rollback `src/announcements/announcement-cursor.ts`, `src/announcements/announcement-cursor.spec.ts`, `src/announcements/resident-announcement-feed.service.ts`, `src/announcements/resident-announcement-feed.service.spec.ts`, `test/announcement-feed-concurrency.e2e-spec.ts`.
+- [x] 3D.1 RED: test paging, validation, replay, ordering, repeatable-read, and clock behavior in `src/announcements/announcement-cursor.spec.ts` and `src/announcements/resident-announcement-feed.service.spec.ts`; run `npm test -- --runInBand --runTestsByPath src/announcements/announcement-cursor.spec.ts src/announcements/resident-announcement-feed.service.spec.ts`.
+- [x] 3D.2 GREEN: create `src/announcements/announcement-cursor.ts` and `src/announcements/resident-announcement-feed.service.ts`; run `npm test -- --runInBand --runTestsByPath src/announcements/announcement-cursor.spec.ts src/announcements/resident-announcement-feed.service.spec.ts`.
+- [x] 3D.3 RED: add concurrency proof in `test/announcement-feed-concurrency.e2e-spec.ts`; run `npm run test:e2e -- --runInBand --runTestsByPath test/announcement-feed-concurrency.e2e-spec.ts`.
+- [x] 3D.4 GREEN: run `npm run test:e2e -- --runInBand --runTestsByPath test/announcement-feed-concurrency.e2e-spec.ts`; rollback `src/announcements/announcement-cursor.ts`, `src/announcements/announcement-cursor.spec.ts`, `src/announcements/resident-announcement-feed.service.ts`, `src/announcements/resident-announcement-feed.service.spec.ts`, `test/announcement-feed-concurrency.e2e-spec.ts`.
 
 ## 3E: RESIDENT route wiring
 
@@ -54,4 +54,4 @@ test-first command/results receipts with the completed work unit.
 ## Closeout (2 tasks)
 
 - [ ] C.1 RED→GREEN: from repository root run `npm test -- --runInBand`, `npm run test:e2e -- --runInBand`, `npm run build`, `git diff --name-only -z f0a95ff..HEAD -- '*.ts' ':(exclude)openspec/changes/archive/**' | xargs -0 -r npx eslint`, `git diff --name-only -z f0a95ff..HEAD -- '*.ts' '*.json' '*.md' '*.yaml' ':(exclude)openspec/changes/archive/**' | xargs -0 -r npx prettier --check`, `npm run openapi:check`, `git diff --check f0a95ff..HEAD`, and `git diff --numstat f0a95ff..HEAD`; record the project lint baseline separately; include all 3C paths and verify archived 3A/3B paths (read-only) unchanged.
-- [ ] C.2 GREEN: advance to `sdd-verify`; update checklist/archive/handoff. Order: 3C.1–3C.8 → 3D → 3E → 3F → 3G → closeout. Next task: **3D.1 RED**.
+- [ ] C.2 GREEN: advance to `sdd-verify`; update checklist/archive/handoff. Order: 3C.1–3C.8 → 3D → 3E → 3F → 3G → closeout. Next task: **3E.1 RED**.
