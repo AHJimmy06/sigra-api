@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return */
 import { Role } from '../common/role.enum';
 import { Announcement, AnnouncementStatus } from './announcement.entity';
 import { AnnouncementsService } from './announcements.service';
@@ -10,81 +11,53 @@ const actor = {
 };
 
 describe('AnnouncementsService', () => {
-  it('sets publishedAt when publishing and preserves it on unrelated edits', async () => {
-    const publishedAt = new Date('2026-09-07T12:00:00.000Z');
+  it('excludes archived announcements by default and maps detail from snapshots', async () => {
     const announcement = {
       id: 'announcement-1',
-      title: 'Original title',
-      body: 'Original announcement body',
-      publishedAt,
-      status: AnnouncementStatus.PUBLISHED,
-    } as Announcement;
-    const repository = {
-      findOne: jest.fn().mockResolvedValue(announcement),
-      save: jest.fn((value: Announcement) => Promise.resolve(value)),
-    };
-    const manager = { getRepository: jest.fn().mockReturnValue(repository) };
-    const dataSource = {
-      transaction: jest.fn((work: (value: typeof manager) => unknown) =>
-        work(manager),
-      ),
-    };
-    const audit = { record: jest.fn().mockResolvedValue(undefined) };
-    const service = new AnnouncementsService(
-      {} as never,
-      dataSource as never,
-      audit,
-    );
-
-    const updated = await service.update(
-      announcement.id,
-      { title: 'Updated title' },
-      actor,
-    );
-    expect(updated.publishedAt).toBe(publishedAt);
-    expect(audit.record).toHaveBeenCalledWith(
-      manager,
-      expect.objectContaining({ action: 'ANNOUNCEMENT_UPDATED' }),
-    );
-  });
-
-  it('preserves original publishedAt and changes explicit state on withdrawal', async () => {
-    const publishedAt = new Date('2026-09-07T12:00:00.000Z');
-    const announcement = {
-      id: 'announcement-1',
-      publishedAt,
-      status: AnnouncementStatus.PUBLISHED,
-    } as Announcement;
-    const repository = {
-      findOne: jest.fn().mockResolvedValue(announcement),
-      save: jest.fn((value: Announcement) => Promise.resolve(value)),
-    };
-    const manager = { getRepository: jest.fn().mockReturnValue(repository) };
-    const dataSource = {
-      transaction: jest.fn((work: (value: typeof manager) => unknown) =>
-        work(manager),
-      ),
-    };
-    const audit = { record: jest.fn().mockResolvedValue(undefined) };
-    const service = new AnnouncementsService(
-      {} as never,
-      dataSource as never,
-      audit,
-    );
-
-    await expect(
-      service.update(announcement.id, { published: false }, actor),
-    ).resolves.toMatchObject({
-      publishedAt,
+      title: 'Notice title',
+      body: 'A long enough announcement body',
       status: AnnouncementStatus.DRAFT,
+      publishedAt: null,
+      authorIdSnapshot: 'admin-1',
+      authorDisplayNameSnapshot: null,
+      authorEmailSnapshot: 'admin@example.com',
+      createdAt: new Date('2026-09-12T10:00:00.000Z'),
+      updatedAt: new Date('2026-09-12T10:00:00.000Z'),
+    } as Announcement;
+    const query = {
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getCount: jest.fn().mockResolvedValue(0),
+      getRawAndEntities: jest.fn().mockResolvedValue({ raw: [], entities: [] }),
+    };
+    const service = new AnnouncementsService(
+      {
+        createQueryBuilder: jest.fn().mockReturnValue(query),
+        findOneBy: jest.fn().mockResolvedValue(announcement),
+      } as never,
+      {} as never,
+      {} as never,
+    );
+
+    await expect(service.findOne(announcement.id)).resolves.toMatchObject({
+      authorId: 'admin-1',
+      author: { name: null, email: 'admin@example.com' },
     });
-    expect(audit.record).toHaveBeenCalledWith(
-      manager,
-      expect.objectContaining({ action: 'ANNOUNCEMENT_WITHDRAWN' }),
+    await service.list({ page: 1, pageSize: 10 });
+    expect(query.andWhere).toHaveBeenCalledWith(
+      'announcement.status <> :archivedStatus',
+      { archivedStatus: AnnouncementStatus.ARCHIVED },
+    );
+    expect(query.orderBy).toHaveBeenCalledWith(
+      'announcement.updatedAt',
+      'DESC',
     );
   });
 
-  it('forces resident lists to published state and keeps admin filtering', async () => {
+  it('uses requested admin filters and explicit archived access', async () => {
     const createQuery = () => ({
       leftJoin: jest.fn().mockReturnThis(),
       addSelect: jest.fn().mockReturnThis(),
@@ -96,13 +69,13 @@ describe('AnnouncementsService', () => {
       getCount: jest.fn().mockResolvedValue(0),
       getRawAndEntities: jest.fn().mockResolvedValue({ raw: [], entities: [] }),
     });
-    const residentQuery = createQuery();
-    const adminQuery = createQuery();
+    const draftQuery = createQuery();
+    const archivedQuery = createQuery();
     const repository = {
       createQueryBuilder: jest
         .fn()
-        .mockReturnValueOnce(residentQuery)
-        .mockReturnValueOnce(adminQuery),
+        .mockReturnValueOnce(draftQuery)
+        .mockReturnValueOnce(archivedQuery),
     };
     const service = new AnnouncementsService(
       repository as never,
@@ -110,20 +83,22 @@ describe('AnnouncementsService', () => {
       {} as never,
     );
 
-    await service.list(
-      { page: 1, pageSize: 10, status: AnnouncementStatus.DRAFT },
-      { ...actor, role: Role.RESIDENT, residentId: 'resident-1' },
-    );
-    await service.list(
-      { page: 1, pageSize: 10, status: AnnouncementStatus.ARCHIVED },
-      actor,
-    );
+    await service.list({
+      page: 1,
+      pageSize: 10,
+      status: AnnouncementStatus.DRAFT,
+    });
+    await service.list({
+      page: 1,
+      pageSize: 10,
+      status: AnnouncementStatus.ARCHIVED,
+    });
 
-    expect(residentQuery.andWhere).toHaveBeenCalledWith(
-      'announcement.status = :residentStatus',
-      { residentStatus: AnnouncementStatus.PUBLISHED },
+    expect(draftQuery.andWhere).toHaveBeenCalledWith(
+      'announcement.status = :status',
+      { status: AnnouncementStatus.DRAFT },
     );
-    expect(adminQuery.andWhere).toHaveBeenCalledWith(
+    expect(archivedQuery.andWhere).toHaveBeenCalledWith(
       'announcement.status = :status',
       { status: AnnouncementStatus.ARCHIVED },
     );
@@ -132,7 +107,11 @@ describe('AnnouncementsService', () => {
   it('returns the observable author shape without exposing the user entity', async () => {
     const announcement = {
       id: 'announcement-1',
-      authorUserId: 'admin-1',
+      authorIdSnapshot: 'admin-1',
+      authorDisplayNameSnapshot: null,
+      authorEmailSnapshot: 'admin@example.com',
+      createdAt: new Date('2026-09-12T10:00:00.000Z'),
+      updatedAt: new Date('2026-09-12T10:00:00.000Z'),
     } as Announcement;
     const query = {
       leftJoin: jest.fn().mockReturnThis(),
@@ -145,7 +124,7 @@ describe('AnnouncementsService', () => {
       take: jest.fn().mockReturnThis(),
       getRawAndEntities: jest.fn().mockResolvedValue({
         entities: [announcement],
-        raw: [{ author_email: 'admin@example.com', password_hash: 'secret' }],
+        raw: [{ password_hash: 'secret' }],
       }),
     };
     const service = new AnnouncementsService(
@@ -154,15 +133,16 @@ describe('AnnouncementsService', () => {
       {} as never,
     );
 
-    const result = await service.list({ page: 1, pageSize: 10 }, actor);
+    const result = await service.list({ page: 1, pageSize: 10 });
 
     expect(result.items[0]).toMatchObject({
       author: {
         id: 'admin-1',
-        name: 'admin@example.com',
+        name: null,
         email: 'admin@example.com',
       },
     });
     expect(JSON.stringify(result)).not.toContain('password_hash');
   });
+
 });
