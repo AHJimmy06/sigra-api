@@ -1,8 +1,8 @@
 # Apply Progress: Phase 3A API Announcement Schema and Author Foundations
 
-## Status: 3A-Schema and 3A-Evidence complete — 3A-Seeds deferred
+## Status: 3A-Schema, 3A-Evidence, and 3A-Seeds complete
 
-Delivery is `auto-chain` with `feature-branch-chain`. The parent currently owns token `sha256:bfc61e36fb00f30b00d72bb7225d92f7502685969b84f17c6f389b6a3e362a0d`, bound to failed evidence `sha256:9cc892bce13c16f0460edbe1ed075dbe9783153c188827806fc997a375fdee09`; this corrective rerun did not acquire or settle either. Earlier tokens and failed evidence below are historical evidence only, not the current parent token.
+Delivery is `auto-chain` with `feature-branch-chain`. The parent currently owns token `sha256:20e6f54abf02ffef1368f18c6204d298da417dd71824bbb48a1a54cae4d1f39b`; this seed slice did not acquire or settle it. Earlier tokens and failed evidence below are historical evidence only, not the current parent token.
 
 ## Failed Attempt Record
 
@@ -46,11 +46,25 @@ Completed task: 3.5.
 | Rollback boundary       | Revert only `design.md`, `tasks.md`, and `apply-progress.md`; implementation, deferred seeds, and the 3A0 helper remain unchanged. |
 | Authored line guard     | 3A-Evidence files: `design.md` 94, `tasks.md` 91, and `apply-progress.md` 56; total `241` additions + deletions; PASS (`<400`).    |
 
-## Deferred 3A-Seeds
+## 3A-Seeds Completion
 
-Tasks 1.2, 2.5, and 3.4 remain unchecked. Seed requirements remain unchanged in the proposal and delta spec; their implementation and tests were restored exactly to HEAD for the later autonomous work unit.
+Completed tasks: 1.2, 2.5, and 3.4.
+
+Behavior-first RED cases failed before the GREEN implementation: stable ADMIN/GUARD handling and null-only fill made no save, configured resident names stayed untrimmed, invalid resident configuration reached the ADMIN write path, and existing resident users were not updated.
+
+| Evidence                               | Exact result                                                                                                                                                                                                                                       |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Focused test command                   | `npm test -- --runInBand --runTestsByPath src/seed/seed.service.spec.ts` — PASS, 1 suite / 5 tests.                                                                                                                                                |
+| Runtime harness command                | N/A — `SeedService` has no independent runtime boundary; full E2E regression below confirms integration compatibility.                                                                                                                             |
+| Full unit suite                        | `npm test -- --runInBand` — PASS, 31 suites / 168 tests.                                                                                                                                                                                           |
+| Full E2E suite                         | `npm run test:e2e -- --runInBand` — PASS, 6 suites / 30 tests.                                                                                                                                                                                     |
+| Candidate-scoped ESLint and formatting | `npx eslint src/seed/seed.service.ts src/seed/seed.service.spec.ts` and `npx prettier --check` for both seed files plus child `tasks.md`/`apply-progress.md` — PASS, 0 diagnostics.                                                                |
+| Build                                  | `npm run build` — PASS.                                                                                                                                                                                                                            |
+| Diff check                             | `git diff --check` — PASS.                                                                                                                                                                                                                         |
+| Authored line guard                    | 3A-Seeds files: 244 additions + 16 deletions across seed sources/tasks/progress; total `260` additions + deletions; PASS (`<400`).                                                                                                                 |
+| Docker/process cleanup                 | `docker ps --filter name=announcement-schema --format '{{.Names}}'` — PASS, no disposable announcement-schema containers.                                                                                                                          |
+| Rollback boundary                      | Revert only `src/seed/seed.service.ts`, `src/seed/seed.service.spec.ts`, and this 3A-Seeds evidence/task state; seeded display names return to their prior behavior without touching schema, migrations, entities, datasource, E2E, or 3A0 helper. |
 
 ## Risks
 
-1. Global lint remains unavailable as a passing gate because the clean develop baseline has 630 known problems. Candidate attribution is clean for Slice A.
-2. 3A-Seeds must be implemented independently and must not include 3A-Schema or 3A-Evidence changes.
+1. Global lint remains unavailable as a passing gate because clean `origin/develop` has 630 pre-existing problems; this slice uses candidate-scoped attribution with no Slice B diagnostic.

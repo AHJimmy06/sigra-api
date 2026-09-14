@@ -5,13 +5,13 @@
 - Delivery strategy: auto-chain
 - Chain strategy: feature-branch-chain
 - Order: 3A-Schema → 3A-Evidence → 3A-Seeds
-- Current work unit: 3A-Evidence — correction records for the completed schema slice
+- Current work unit: 3A-Seeds — stable, non-destructive seed names
 
 ```text
 3A0 PostgreSQL helper
         │
         ▼
-3A-Schema (complete) → 📍 3A-Evidence (current) → 3A-Seeds (deferred) → 3B
+3A-Schema (complete) → 3A-Evidence (complete) → 📍 3A-Seeds (current) → 3B
 ```
 
 ## Slice A: Schema, Migration, Mapping, and Registration
@@ -80,12 +80,12 @@
 
 ### Phase 1: Behavior-First RED Tests
 
-- [ ] 1.2 Extend `src/seed/seed.service.spec.ts` with failing cases for stable ADMIN/GUARD names, trimmed/default resident name, null-only fill, invalid configuration before writes, and idempotent existing-user paths.
+- [x] 1.2 Extend `src/seed/seed.service.spec.ts` with failing cases for stable ADMIN/GUARD names, trimmed/default resident name, null-only fill, invalid configuration before writes, and idempotent existing-user paths.
 
 ### Phase 2: Seed GREEN Implementation
 
-- [ ] 2.5 Update `src/seed/seed.service.ts` to preserve valid names, fill only nulls, validate trimmed configured values before writes, and keep existing-user behavior idempotent.
+- [x] 2.5 Update `src/seed/seed.service.ts` to preserve valid names, fill only nulls, validate trimmed configured values before writes, and keep existing-user behavior idempotent.
 
 ### Phase 3: Verification and Handoff
 
-- [ ] 3.4 Run the Slice B focused unit test, full regression, candidate-scoped lint/format checks, build, diff check, and the Slice B changed-line guard.
+- [x] 3.4 Run the Slice B focused unit test, full regression, candidate-scoped lint/format checks, build, diff check, and the Slice B changed-line guard.
