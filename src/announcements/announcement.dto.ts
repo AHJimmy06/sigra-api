@@ -7,17 +7,44 @@ import {
 } from 'class-validator';
 import { PaginationQueryDto } from '../common/pagination.dto';
 import { IsEnum } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { AnnouncementStatus } from './announcement.entity';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateAnnouncementDto {
-  @IsString() @MinLength(5) @MaxLength(160) title!: string;
-  @IsString() @MinLength(10) @MaxLength(2000) body!: string;
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  @IsString()
+  @MinLength(5)
+  @MaxLength(160)
+  title!: string;
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  @IsString()
+  @MinLength(10)
+  @MaxLength(2000)
+  body!: string;
   @IsOptional() @IsBoolean() published?: boolean;
 }
 export class UpdateAnnouncementDto {
-  @IsOptional() @IsString() @MinLength(5) @MaxLength(160) title?: string;
-  @IsOptional() @IsString() @MinLength(10) @MaxLength(2000) body?: string;
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  @IsOptional()
+  @IsString()
+  @MinLength(5)
+  @MaxLength(160)
+  title?: string;
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  @IsOptional()
+  @IsString()
+  @MinLength(10)
+  @MaxLength(2000)
+  body?: string;
   @IsOptional() @IsBoolean() published?: boolean;
 }
 
@@ -34,7 +61,7 @@ export class AnnouncementResponseDto {
   @ApiProperty({ enum: AnnouncementStatus }) status!: AnnouncementStatus;
   @ApiProperty({ format: 'date-time', nullable: true })
   publishedAt!: string | null;
-  @ApiProperty({ format: 'uuid', nullable: true }) authorUserId!: string | null;
+  @ApiProperty({ format: 'uuid', nullable: true }) authorId!: string | null;
   @ApiProperty({ type: () => AnnouncementAuthorResponseDto, nullable: true })
   author!: AnnouncementAuthorResponseDto | null;
   @ApiProperty({ format: 'date-time' }) createdAt!: string;
@@ -43,7 +70,7 @@ export class AnnouncementResponseDto {
 
 export class AnnouncementAuthorResponseDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
-  @ApiProperty() name!: string;
+  @ApiProperty({ nullable: true }) name!: string | null;
   @ApiProperty({ format: 'email' }) email!: string;
 }
 

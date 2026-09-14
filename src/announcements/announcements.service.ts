@@ -10,6 +10,7 @@ import {
   UpdateAnnouncementDto,
 } from './announcement.dto';
 import { Announcement, AnnouncementStatus } from './announcement.entity';
+import { mapAnnouncementResponse } from './announcement.mapper';
 
 @Injectable()
 export class AnnouncementsService {
@@ -27,41 +28,40 @@ export class AnnouncementsService {
       search?: string;
       status?: AnnouncementStatus;
     },
-    actor: AuthUser,
   ) {
-    const { page, pageSize, search, status } = params;
-    const query = this.announcementRepository
-      .createQueryBuilder('announcement')
-      .leftJoin(User, 'author', 'author.id = announcement.authorUserId')
-      .addSelect('author.email', 'author_email');
-    if (search) {
+    const query = this.announcementRepository.createQueryBuilder('announcement');
+    if (params.search) {
       query.andWhere(
         '(announcement.title ILIKE :search OR announcement.body ILIKE :search)',
-        { search: `%${search}%` },
+        { search: `%${params.search}%` },
       );
     }
-    if (actor.role === Role.RESIDENT) {
-      query.andWhere('announcement.status = :residentStatus', {
-        residentStatus: AnnouncementStatus.PUBLISHED,
+    if (params.status !== undefined) {
+      query.andWhere('announcement.status = :status', { status: params.status });
+    } else {
+      query.andWhere('announcement.status <> :archivedStatus', {
+        archivedStatus: AnnouncementStatus.ARCHIVED,
       });
-    } else if (status !== undefined) {
-      query.andWhere('announcement.status = :status', { status });
     }
     const total = await query.getCount();
     const result = await query
-      .orderBy('announcement.createdAt', 'DESC')
+      .orderBy('announcement.updatedAt', 'DESC')
       .addOrderBy('announcement.id', 'DESC')
-      .skip((page - 1) * pageSize)
-      .take(pageSize)
+      .skip((params.page - 1) * params.pageSize)
+      .take(params.pageSize)
       .getRawAndEntities();
-    const items = result.entities.map((announcement, index) => {
-      const raw = result.raw[index] as Record<string, unknown> | undefined;
-      return this.toResponse(
-        announcement,
-        typeof raw?.author_email === 'string' ? raw.author_email : null,
-      );
-    });
-    return { items, total, page, pageSize };
+    return {
+      items: result.entities.map(mapAnnouncementResponse),
+      total,
+      page: params.page,
+      pageSize: params.pageSize,
+    };
+  }
+
+  async findOne(id: string) {
+    const announcement = await this.announcementRepository.findOneBy({ id });
+    if (!announcement) throw new NotFoundException('Announcement not found');
+    return mapAnnouncementResponse(announcement);
   }
 
   create(dto: CreateAnnouncementDto, actor: AuthUser) {
