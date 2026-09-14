@@ -58,20 +58,27 @@ Retained RED refs exactly target
 - **3B.4 proof** — 3 suites / 8 tests; observed command-output SHA-256:
   `acd236aa3a089f8d2b97a995fe26c1372dbe83a73f3450b2b395f97ef4683b74`.
 
-## TDD Cycle Evidence
+## Task-Level Numeric Triangulation
 
-| Task   | RED         | GREEN             | Triangulation / refactor                        |
-| ------ | ----------- | ----------------- | ----------------------------------------------- |
-| 3B.1.1 | 3B.1 RED    | 3B.1 GREEN        | mapper snapshot/legacy; allowlisted mapper      |
-| 3B.1.2 | 3B.1 RED    | 3B.1 GREEN        | controller/service reads; delegation retained   |
-| 3B.1.3 | N/A harness | 3B.4 proof        | cleanup/locks; cleanup retained                 |
-| 3B.2.1 | 3B.2 RED    | 3B.2 GREEN        | pipe shapes; discriminated command retained     |
-| 3B.2.2 | 3B.2 RED    | 3B.2 GREEN        | create/content cases; transaction flow retained |
-| 3B.3.1 | 3B.3 RED    | 3B.3 GREEN        | no-op/terminal cases; lock authority retained   |
-| 3B.3.2 | 3B.3 RED    | 3B.3 GREEN        | archive/409 cases; integration retained         |
-| 3B.4.1 | N/A proof   | 3B.4 proof        | core HTTP proof                                 |
-| 3B.4.2 | N/A proof   | 3B.4 proof        | concurrency/rollback/cleanup proof              |
-| 3B.4.3 | N/A scope   | structural checks | 19-path scope; no runtime refactor              |
+Each completed task has a separate numeric observation. Counts are derived from
+the named Git tree or source path; they are not inferred from task ranges.
+
+| Task   | Observed numeric evidence                                            | Exact source evidence                                                                                                                                                                                                                                  | Result                                                                                                                |
+| ------ | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| 3B.1.1 | 2 mapper test cases; 1 production DTO path; 0 claimed DTO spec paths | `b4402ed203bd3eb921365cce612d49a4bc4590ec:src/announcements/announcement.mapper.spec.ts` has 2 `it` blocks; `src/announcements/announcement.dto.ts` is the response contract; no `announcement.dto.spec.ts` is claimed                                 | PASS — 3B.1 GREEN contributes 2 of 7 focused tests.                                                                   |
+| 3B.1.2 | 2 controller + 3 service = 5 focused test cases                      | `b4402ed203bd3eb921365cce612d49a4bc4590ec:src/announcements/announcements.controller.spec.ts` (2 `it` blocks) and `...:announcements.service.spec.ts` (3 `it` blocks)                                                                                  | PASS — with 3B.1.1, 7/7 3B.1 GREEN tests.                                                                             |
+| 3B.1.3 | 1 reusable harness path; 2 downstream proof paths                    | `b4402ed203bd3eb921365cce612d49a4bc4590ec:test/support/announcement-administration-http-harness.ts`; `b5ef048b9a5b951b3109ab787edff2e76f73660a` adds `test/announcement-administration-core.e2e-spec.ts` and `test/announcement-lifecycle.e2e-spec.ts` | PASS — harness exercised by the 3-suite/8-test PostgreSQL receipt.                                                    |
+| 3B.2.1 | 3 strict-pipe test cases                                             | `52557e192657562df35a22202a6ab9b877e6f8ed:src/announcements/announcement-patch.pipe.spec.ts` has 3 `it` blocks                                                                                                                                         | PASS — 3B.2 GREEN contributes 3 of 8 focused tests.                                                                   |
+| 3B.2.2 | 5 focused service test cases; 3 transaction implementation paths     | `52557e192657562df35a22202a6ab9b877e6f8ed:src/announcements/announcements.service.spec.ts` has 5 `it` blocks; pair inventory names `announcements.controller.ts`, `announcements.service.spec.ts`, and `announcements.service.ts`                      | PASS — with 3B.2.1, 8/8 3B.2 GREEN tests.                                                                             |
+| 3B.3.1 | 2 lifecycle RED test cases; 1 service-spec path                      | `git show --unified=0 116ebee9cf744cf7cb8c32acabbd308a9a80df00 -- src/announcements/announcements.service.spec.ts` adds 2 `it` blocks                                                                                                                  | PASS — RED is retained; 3B.3 GREEN receipt is 1 suite/7 tests.                                                        |
+| 3B.3.2 | 4 implementation paths; 7 service tests in GREEN tree                | `a9189e79036ce9e052d9d9aaf862a75b72c28f22` inventory: `announcements.controller.ts`, `announcements.service.spec.ts`, `announcements.service.ts`, `src/common/http/http-error.contract.ts`; its service spec has 7 `it` blocks                         | PASS — locked lifecycle, archive, and safe 409 are covered by the 1-suite/7-test receipt.                             |
+| 3B.4.1 | 4 PostgreSQL/Nest HTTP proof cases                                   | `b5ef048b9a5b951b3109ab787edff2e76f73660a:test/announcement-administration-core.e2e-spec.ts` has 4 `it` blocks                                                                                                                                         | PASS — contributes 4 proof cases to the 3-suite/8-test receipt.                                                       |
+| 3B.4.2 | 3 PostgreSQL lifecycle/concurrency/rollback proof cases              | `b5ef048b9a5b951b3109ab787edff2e76f73660a:test/announcement-lifecycle.e2e-spec.ts` has 3 `it` blocks                                                                                                                                                   | PASS — contributes 3 proof cases; the remaining 1 case is the existing migration suite in the 3-suite/8-test receipt. |
+| 3B.4.3 | 19 scoped paths; 6 original Phase 3B OpenSpec artifact paths         | `git diff --name-only 9afc8ffda2224de7f7b514908622769fa789b647 ed13aed57e027422d86755df08bc0ec04caf0c7d` reports 19; its Phase 3B OpenSpec subset = 6                                                                                                  | PASS — scope, quality-gate record, and reverse-order rollback are complete.                                           |
+
+The retained focused receipts are: 3B.1 GREEN 7 tests, 3B.2 GREEN 8 tests,
+3B.3 GREEN 1 suite/7 tests, and 3B.4 proof 3 suites/8 tests. The 3B.4 total
+contains 4 core cases, 3 lifecycle cases, and 1 existing migration case.
 
 ## Work Unit Evidence
 
