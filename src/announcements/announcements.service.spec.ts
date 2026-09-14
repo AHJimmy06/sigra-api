@@ -11,6 +11,61 @@ const actor = {
 };
 
 describe('AnnouncementsService', () => {
+  it('snapshots the creator and records ordered create and publication audits', async () => {
+    const saved = {
+      id: 'announcement-1',
+      title: 'Notice title',
+      body: 'A sufficiently long announcement body',
+      status: AnnouncementStatus.PUBLISHED,
+      publishedAt: new Date('2026-09-13T10:00:00.000Z'),
+      authorIdSnapshot: actor.sub,
+      authorDisplayNameSnapshot: 'Admin',
+      authorEmailSnapshot: actor.email,
+      createdAt: new Date('2026-09-13T10:00:00.000Z'),
+      updatedAt: new Date('2026-09-13T10:00:00.000Z'),
+    } as Announcement;
+    const announcements = {
+      create: jest.fn((value) => value),
+      save: jest.fn().mockResolvedValue(saved),
+    };
+    const users = {
+      findOneByOrFail: jest.fn().mockResolvedValue({
+        id: actor.sub,
+        displayName: 'Admin',
+        email: ' ADMIN@EXAMPLE.COM ',
+      }),
+    };
+    const manager = {
+      getRepository: jest.fn((entity) =>
+        entity === Announcement ? announcements : users,
+      ),
+    };
+    const audit = { record: jest.fn().mockResolvedValue(undefined) };
+    const service = new AnnouncementsService(
+      {} as never,
+      { transaction: jest.fn((work) => work(manager)) } as never,
+      audit,
+    );
+
+    await expect(
+      service.create(
+        { title: saved.title, body: saved.body, published: true },
+        actor,
+      ),
+    ).resolves.toMatchObject({ authorId: actor.sub });
+    expect(announcements.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        authorIdSnapshot: actor.sub,
+        authorDisplayNameSnapshot: 'Admin',
+        authorEmailSnapshot: 'admin@example.com',
+      }),
+    );
+    expect(audit.record.mock.calls.map(([, event]) => event.action)).toEqual([
+      'ANNOUNCEMENT_CREATED',
+      'ANNOUNCEMENT_PUBLISHED',
+    ]);
+  });
+
   it('excludes archived announcements by default and maps detail from snapshots', async () => {
     const announcement = {
       id: 'announcement-1',
@@ -54,6 +109,49 @@ describe('AnnouncementsService', () => {
     expect(query.orderBy).toHaveBeenCalledWith(
       'announcement.updatedAt',
       'DESC',
+    );
+  });
+
+  it('sets publishedAt when publishing and preserves it on unrelated edits', async () => {
+    const publishedAt = new Date('2026-09-07T12:00:00.000Z');
+    const announcement = {
+      id: 'announcement-1',
+      title: 'Original title',
+      body: 'Original announcement body',
+      publishedAt,
+      status: AnnouncementStatus.PUBLISHED,
+      authorIdSnapshot: 'admin-1',
+      authorDisplayNameSnapshot: null,
+      authorEmailSnapshot: 'admin@example.com',
+      createdAt: publishedAt,
+      updatedAt: publishedAt,
+    } as Announcement;
+    const repository = {
+      findOne: jest.fn().mockResolvedValue(announcement),
+      save: jest.fn((value: Announcement) => Promise.resolve(value)),
+    };
+    const manager = { getRepository: jest.fn().mockReturnValue(repository) };
+    const dataSource = {
+      transaction: jest.fn((work: (value: typeof manager) => unknown) =>
+        work(manager),
+      ),
+    };
+    const audit = { record: jest.fn().mockResolvedValue(undefined) };
+    const service = new AnnouncementsService(
+      {} as never,
+      dataSource as never,
+      audit,
+    );
+
+    const updated = await service.update(
+      announcement.id,
+      { kind: 'CONTENT', title: 'Updated title' },
+      actor,
+    );
+    expect(updated.publishedAt).toBe(publishedAt.toISOString());
+    expect(audit.record).toHaveBeenCalledWith(
+      manager,
+      expect.objectContaining({ action: 'ANNOUNCEMENT_UPDATED' }),
     );
   });
 
