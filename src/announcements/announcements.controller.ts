@@ -1,4 +1,16 @@
-import { Controller, Get, Param, ParseUUIDPipe, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Role } from '../common/role.enum';
 import { Roles } from '../common/roles.decorator';
@@ -6,10 +18,15 @@ import { RolesGuard } from '../common/roles.guard';
 import {
   AnnouncementResponseDto,
   AnnouncementPaginationQueryDto,
+  CreateAnnouncementDto,
   PaginatedAnnouncementsResponseDto,
 } from './announcement.dto';
 import { AnnouncementsService } from './announcements.service';
-import { ApiOkResponse } from '@nestjs/swagger';
+import type { AuthUser } from '../auth/auth.types';
+import { CurrentUser } from '../common/current-user.decorator';
+import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
+import { AnnouncementPatchPipe } from './announcement-patch.pipe';
+import type { AnnouncementPatchCommand } from './announcement-patch.pipe';
 
 @Controller('announcements')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -29,4 +46,23 @@ export class AnnouncementsController {
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.announcementsService.findOne(id);
   }
+
+  @Post()
+  @Roles(Role.ADMIN)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiCreatedResponse({ type: AnnouncementResponseDto })
+  create(@CurrentUser() user: AuthUser, @Body() dto: CreateAnnouncementDto) {
+    return this.announcementsService.create(dto, user);
+  }
+
+  @Patch(':id')
+  @Roles(Role.ADMIN)
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new AnnouncementPatchPipe()) command: AnnouncementPatchCommand,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.announcementsService.update(id, command, user);
+  }
+
 }
