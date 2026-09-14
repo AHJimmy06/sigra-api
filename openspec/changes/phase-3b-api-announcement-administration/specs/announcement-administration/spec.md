@@ -2,88 +2,32 @@
 
 ## MODIFIED Requirements
 
-### Requirement: Safe allowlisted administration responses
+### Requirement: ADMIN announcement administration
 
-Responses MUST contain id, title, plain-text body, status, publishedAt, createdAt, updatedAt, and nullable authorId plus snapshot id, name, and email. Projection MUST use immutable snapshots; legacy author fields MAY be null.
+List, detail, create, strict PATCH, and `POST /api/announcements/:id/archive` MUST require ADMIN. Responses MUST be allowlisted snapshot projections. Archives are terminal/read-only, default lists exclude them, explicit archived reads are permitted, and archived detail GET returns the safe nine-key ISO-date payload.
 
-#### Scenario: Deleted or legacy author
-
-- GIVEN a complete snapshot, deleted profile, or all-null legacy author
-- WHEN an ADMIN reads the announcement
-- THEN allowlisted fields use the snapshot, or nullable author fields, without sensitive data
-
-### Requirement: ADMIN lifecycle and state rules
-
-List, detail, create, PATCH, and POST `/api/announcements/:id/archive` MUST require ADMIN. List MUST support search, enum status, page, and pageSize; default status MUST exclude ARCHIVED, explicit ARCHIVED reads MUST be allowed, and ordering MUST be `updatedAt DESC, id DESC`. Archives are read-only. Content edits MUST preserve status and publishedAt; publishedAt MUST be first-set on publication and never cleared.
-
-#### Scenario: Administration routes
-
-- GIVEN a RESIDENT or unauthenticated caller
-- WHEN the caller invokes any administration route
-- THEN standard 401/403 response is returned
-
-#### Scenario: List and explicit archived detail
-
-- GIVEN draft, published, and archived announcements
-- WHEN an ADMIN lists without status, lists with `status=ARCHIVED`, or reads a detail by UUID
-- THEN default lists omit archives, explicit reads include them, and order is correct
-
-### Requirement: Validation, ordering, and error contract
-
-Title MUST be non-empty text of 5–160; body MUST be non-empty plain text of 10–2000; search MUST be ≤160; page MUST be integer ≥1; pageSize MUST be integer 1–100. PATCH MUST be non-empty, permitted-only, and either content or exactly `{published:boolean}`; mixed/unknown fields MUST be rejected. Invalid input MUST return the Phase 0 `{code,message,details,requestId}` envelope and no mutation or audit.
-
-#### Scenario: Validation
-
-- GIVEN an out-of-range field, empty PATCH, unknown key, or mixed PATCH body
-- WHEN the request is submitted
-- THEN HTTP 400 returns that envelope with no mutation or audit
-
-#### Scenario: Strict PATCH classification
-
-- GIVEN a valid content body or exactly `{published:boolean}`
-- WHEN an ADMIN submits PATCH
-- THEN the corresponding edit or lifecycle operation is selected, while any other shape is rejected
-
-### Requirement: Transactional creation and content edits
-
-Create/content edits and audits MUST be one transaction. Create MUST snapshot creator id, displayName, and normalized email. Draft create MUST write one `ANNOUNCEMENT_CREATED`; immediate publication MUST write ordered `ANNOUNCEMENT_CREATED`, then `ANNOUNCEMENT_PUBLISHED`. Unchanged content MUST be a no-op.
-
-#### Scenario: Immediate publication
-
-- GIVEN an ADMIN creates valid content with published=true
-- WHEN the request commits
-- THEN the resource is published with first publishedAt and exactly two ordered audits
-
-### Requirement: Atomic, concurrency-safe audits
-
-Every mutation of an existing announcement MUST pessimistically lock the row before evaluating state and write transaction-bound audits containing only event type, actor, changed fields, and applicable `{status:{from,to}}`; title/body values and credentials MUST NOT appear. Target-state publish/withdraw and archive repeats MUST change neither timestamps nor audit cardinality. PATCH against ARCHIVED MUST return 409.
-
-#### Scenario: Concurrent lifecycle requests
-
-- GIVEN concurrent publish, withdraw, or archive requests for one announcement
-- WHEN both complete
-- THEN locking yields one valid transition, consistent resources, and no duplicate transition audit
-
-#### Scenario: Atomic failure
-
-- GIVEN an audit write fails during a mutation
-- WHEN the transaction aborts
-- THEN the announcement and all audits remain unchanged
-
-#### Scenario: Terminal archive
+#### Scenario: Archived detail
 
 - GIVEN an archived announcement
-- WHEN an ADMIN repeats POST archive or attempts PATCH
-- THEN repeat archive returns HTTP 200 with the unchanged resource, while PATCH returns 409
+- WHEN an ADMIN calls GET by UUID
+- THEN the response is the exact safe snapshot payload with ISO dates.
 
-## ADDED Requirements
+### Requirement: Transactional lifecycle
 
-### Requirement: Phase 3B boundary
+Create/content/lifecycle mutations MUST use transaction-bound audits. Existing rows MUST be pessimistically locked. Unchanged content, repeated target-state publication/withdrawal, and repeated archive MUST not save, change timestamps, or add audits.
 
-Phase 3B MUST preserve Phase 3A schema/entity/migration ownership and MUST NOT implement resident synchronization writers, cursors, tombstones, or events from 3C, generate/prove OpenAPI from 3D, or implement 3E Web work. Delivery MUST use one maintainer-approved `size:exception` PR under the internal `exception-ok` strategy, with an honest total forecast of 1,050–1,400 changed lines. Boundaries 3B.1–3B.4 MUST use flexible adjacent RED/GREEN commits for focused review, verification, and paired rollback, not separate PRs or separate SDD apply attempts. Tests MUST remain with the behavior they prove, and production code, reusable HTTP/PostgreSQL harness work, tests, and runtime/PostgreSQL proof MUST NOT be compressed or weakened because of size.
+#### Scenario: Concurrent lifecycle
+
+- GIVEN concurrent lifecycle requests for one announcement
+- WHEN PostgreSQL serializes the lock contention
+- THEN only valid transitions and their single audit events persist.
+
+## ADDED Requirement: Phase 3B delivery evidence
+
+The change MUST preserve Phase 3A ownership and exclude 3C, 3D, and 3E. The original 1,050–1,400-line forecast is historical; final observed size is 2,120 changed lines (1,975 additions + 145 deletions), with pair totals 702, 387, 155, and 1,080. Delivery is one maintainer-approved `size:exception` PR under `exception-ok`.
 
 #### Scenario: Scope isolation
 
-- GIVEN Phase 3B administration is implemented
-- WHEN artifacts are reviewed
-- THEN Phase 3A ownership is unchanged, no 3C writer/projector, 3D OpenAPI proof, or 3E Web work is included, and the review history shows exactly one PR with flexible adjacent RED/GREEN work-unit commits
+- GIVEN the final Phase 3B range
+- WHEN its path inventory is inspected
+- THEN exactly 19 scoped paths are present and no Phase 3A schema/entity/migration, 3C, 3D, or 3E path appears.
