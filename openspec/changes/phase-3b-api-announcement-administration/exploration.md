@@ -16,7 +16,12 @@ The static evidence is the mapper, controller, service, and PATCH-pipe test inve
 
 ### Observed Delivery Size
 
-The original planning forecast was 1,050–1,400 changed lines. Final observed size is 2,120 changed lines (1,975 additions + 145 deletions): 3B.1 702, 3B.2 387, 3B.3 155, and 3B.4 1,080. One maintainer-approved `size:exception` PR remains the delivery decision; no chained PR was created.
+The original planning forecast was 1,050–1,400 changed lines. Final observed
+size is 2,042 changed lines (1,897 additions + 145 deletions) in
+`git diff --numstat 9afc8ff..HEAD`. Historical adjacent-pair sizes are 3B.1
+702, 3B.2 387, 3B.3 155, and 3B.4 1,080; they are not the final-range total.
+One maintainer-approved `size:exception` PR remains the delivery decision; no
+chained PR was created.
 
 ### Conclusion
 

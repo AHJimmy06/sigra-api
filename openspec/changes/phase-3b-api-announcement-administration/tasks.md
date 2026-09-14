@@ -3,8 +3,10 @@
 ## Review Workload Forecast
 
 - Original forecast: 1,050–1,400 changed lines.
-- Final observed size: 2,120 changed lines (1,975 additions + 145 deletions).
-- Observed pair totals: 3B.1 702; 3B.2 387; 3B.3 155; 3B.4 1,080.
+- Final observed size: 2,042 changed lines (1,897 additions + 145 deletions) in
+  `git diff --numstat 9afc8ff..HEAD`.
+- Historical pair totals: 3B.1 702; 3B.2 387; 3B.3 155; 3B.4 1,080. They are
+  adjacent work-unit sizes, not the final-range total.
 - Delivery: one PR; maintainer-approved `size:exception`; `exception-ok`.
 - Chained PRs: no.
 

@@ -17,8 +17,10 @@ Phase 3A schema ownership.
 ## Delivery Record
 
 - Original forecast: 1,050–1,400 changed lines.
-- Final observed size: 2,120 changed lines (1,975 additions + 145 deletions).
-- Observed pair totals: 702, 387, 155, and 1,080 lines for 3B.1–3B.4.
+- Final observed size: 2,042 changed lines (1,897 additions + 145 deletions) in
+  `git diff --numstat 9afc8ff..HEAD`.
+- Historical pair totals: 702, 387, 155, and 1,080 lines for 3B.1–3B.4; they
+  describe adjacent work-unit pairs and are not the final-range total.
 - Review decision: one PR; maintainer-approved `size:exception`; no chained PR.
 
 The original forecast is history only. The final observed size is authoritative

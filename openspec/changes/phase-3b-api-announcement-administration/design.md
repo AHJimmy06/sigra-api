@@ -23,9 +23,11 @@ excluded.
 ## Review Decision
 
 Original planning forecast: 1,050–1,400 changed lines. Final observed range:
-2,120 changed lines (1,975 additions + 145 deletions). The maintainer approved
-one PR with `size:exception`; no chained PR was created. The 400-line budget
-constrained review planning, not code or test quality.
+2,042 changed lines (1,897 additions + 145 deletions) in
+`git diff --numstat 9afc8ff..HEAD`. The 702, 387, 155, and 1,080 pair totals
+are historical adjacent work-unit sizes, not the final-range total. The
+maintainer approved one PR with `size:exception`; no chained PR was created.
+The 400-line budget constrained review planning, not code or test quality.
 
 ## Proof Boundary
 
