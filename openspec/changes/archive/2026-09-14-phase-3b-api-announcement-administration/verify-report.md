@@ -16,10 +16,10 @@ build_output_hash: sha256:5236083759b0b2a639e30e8542684c2026048e9a8b2682072b1923
 
 ## Verification Report
 
-**Change**: `phase-3b-api-announcement-administration`  
-**Version**: N/A  
-**Mode**: Strict TDD  
-**Evidence HEAD**: `3fb27d9c7e04ae096ef7f4177d11e819ed3dfc52`  
+**Change**: `phase-3b-api-announcement-administration`
+**Version**: N/A
+**Mode**: Strict TDD
+**Evidence HEAD**: `3fb27d9c7e04ae096ef7f4177d11e819ed3dfc52`
 **Base**: `9afc8ffda2224de7f7b514908622769fa789b647`
 
 ### Verdict
@@ -165,9 +165,9 @@ The separately requested Phase 3A migration E2E contributes one additional passi
 
 ### Quality Metrics
 
-**Linter**: ✅ Scoped candidate lint has zero diagnostics; ⚠️ project baseline remains exactly 587 errors and 34 warnings.  
-**Type checker/build**: ✅ `npm run build` exits 0.  
-**Formatter**: ✅ All 19 scoped paths pass Prettier.  
+**Linter**: ✅ Scoped candidate lint has zero diagnostics; ⚠️ project baseline remains exactly 587 errors and 34 warnings.
+**Type checker/build**: ✅ `npm run build` exits 0.
+**Formatter**: ✅ All 19 scoped paths pass Prettier.
 **Diff safety**: ✅ `git diff --check 9afc8ff..HEAD` exits 0.
 
 ### Rollback Evidence
