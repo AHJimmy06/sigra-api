@@ -687,16 +687,24 @@
         "operationId": "AnnouncementsController_list",
         "parameters": [
           {
-            "name": "status",
+            "name": "page",
             "required": false,
             "in": "query",
             "schema": {
-              "type": "string",
-              "enum": [
-                "DRAFT",
-                "PUBLISHED",
-                "ARCHIVED"
-              ]
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10,
+              "type": "number"
             }
           },
           {
@@ -709,31 +717,15 @@
             }
           },
           {
-            "name": "page",
-            "required": true,
+            "name": "status",
+            "required": false,
             "in": "query",
             "schema": {
-              "minimum": 1,
-              "default": 1,
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/Object"
-                }
-              ]
-            }
-          },
-          {
-            "name": "pageSize",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "minimum": 1,
-              "maximum": 100,
-              "default": 10,
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/Object"
-                }
+              "type": "string",
+              "enum": [
+                "DRAFT",
+                "PUBLISHED",
+                "ARCHIVED"
               ]
             }
           }
@@ -935,8 +927,8 @@
       }
     },
     "/api/announcements/{id}": {
-      "patch": {
-        "operationId": "AnnouncementsController_update",
+      "get": {
+        "operationId": "AnnouncementsController_findOne",
         "parameters": [
           {
             "name": "id",
@@ -947,19 +939,16 @@
             }
           }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateAnnouncementDto"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnnouncementResponseDto"
+                }
+              }
+            }
           },
           "400": {
             "description": "Phase 0 error (400)",
@@ -1041,8 +1030,8 @@
           }
         ]
       },
-      "delete": {
-        "operationId": "AnnouncementsController_remove",
+      "patch": {
+        "operationId": "AnnouncementsController_update",
         "parameters": [
           {
             "name": "id",
@@ -1054,8 +1043,15 @@
           }
         ],
         "responses": {
-          "204": {
-            "description": ""
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnnouncementResponseDto"
+                }
+              }
+            }
           },
           "400": {
             "description": "Phase 0 error (400)",
@@ -1130,6 +1126,229 @@
         },
         "tags": [
           "Announcements"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/announcements/{id}/archive": {
+      "post": {
+        "operationId": "AnnouncementsController_archive",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnnouncementResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Phase 0 error (400)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Phase 0 error (401)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Phase 0 error (403)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Phase 0 error (404)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Phase 0 error (409)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Phase 0 error (429)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Phase 0 error (500)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Announcements"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/resident/announcements": {
+      "get": {
+        "operationId": "ResidentAnnouncementsController_getFeed",
+        "parameters": [
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Opaque versioned cursor representing synchronization position.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Page size limit between 1 and 100.",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 100,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResidentAnnouncementFeedResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Phase 0 error (400)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Phase 0 error (401)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Phase 0 error (403)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Phase 0 error (404)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Phase 0 error (409)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Phase 0 error (429)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Phase 0 error (500)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "resident-announcements"
         ],
         "security": [
           {
@@ -4163,10 +4382,6 @@
           "requestId"
         ]
       },
-      "Object": {
-        "type": "object",
-        "properties": {}
-      },
       "AnnouncementAuthorResponseDto": {
         "type": "object",
         "properties": {
@@ -4175,7 +4390,8 @@
             "format": "uuid"
           },
           "name": {
-            "type": "string"
+            "type": "string",
+            "nullable": true
           },
           "email": {
             "type": "string",
@@ -4214,7 +4430,7 @@
             "nullable": true,
             "format": "date-time"
           },
-          "authorUserId": {
+          "authorId": {
             "type": "string",
             "nullable": true,
             "format": "uuid"
@@ -4243,7 +4459,7 @@
           "body",
           "status",
           "publishedAt",
-          "authorUserId",
+          "authorId",
           "author",
           "createdAt",
           "updatedAt"
@@ -4297,23 +4513,45 @@
           "body"
         ]
       },
-      "UpdateAnnouncementDto": {
+      "ResidentAnnouncementFeedResponseDto": {
         "type": "object",
         "properties": {
-          "title": {
-            "type": "string",
-            "minLength": 5,
-            "maxLength": 160
+          "items": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ResidentAnnouncementUpsertItemDto"
+                },
+                {
+                  "$ref": "#/components/schemas/ResidentAnnouncementTombstoneItemDto"
+                }
+              ]
+            }
           },
-          "body": {
+          "checkpoint": {
             "type": "string",
-            "minLength": 10,
-            "maxLength": 2000
+            "description": "Synchronization checkpoint cursor for future requests."
           },
-          "published": {
+          "hasMore": {
             "type": "boolean"
+          },
+          "nextCursor": {
+            "type": "string",
+            "description": "Next cursor when more results are available."
+          },
+          "syncedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Server synchronization timestamp in ISO UTC."
           }
-        }
+        },
+        "required": [
+          "items",
+          "checkpoint",
+          "hasMore",
+          "syncedAt"
+        ]
       },
       "LoginDto": {
         "type": "object",
@@ -4436,6 +4674,10 @@
           "openIncidents",
           "flow"
         ]
+      },
+      "Object": {
+        "type": "object",
+        "properties": {}
       },
       "ResidentUnitResponseDto": {
         "type": "object",
@@ -4924,6 +5166,7 @@
             "type": "string",
             "enum": [
               "VALIDATION_ERROR",
+              "CURSOR_INVALID",
               "BAD_REQUEST",
               "UNAUTHORIZED",
               "FORBIDDEN",

@@ -2,6 +2,7 @@ import { BadRequestException, ValidationError } from '@nestjs/common';
 
 export type HttpErrorCode =
   | 'VALIDATION_ERROR'
+  | 'CURSOR_INVALID'
   | 'BAD_REQUEST'
   | 'UNAUTHORIZED'
   | 'FORBIDDEN'
@@ -47,6 +48,12 @@ export class ContractValidationException extends BadRequestException {
     readonly details: Record<string, string[]>,
     message = 'Validation failed',
   ) {
+    super(message);
+  }
+}
+
+export class CursorInvalidException extends BadRequestException {
+  constructor(message = 'Announcement feed cursor is invalid') {
     super(message);
   }
 }

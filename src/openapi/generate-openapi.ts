@@ -9,6 +9,8 @@ import { AccessController } from '../access/access.controller';
 import { AccessService } from '../access/access.service';
 import { AnnouncementsController } from '../announcements/announcements.controller';
 import { AnnouncementsService } from '../announcements/announcements.service';
+import { ResidentAnnouncementFeedService } from '../announcements/resident-announcement-feed.service';
+import { ResidentAnnouncementsController } from '../announcements/resident-announcements.controller';
 import { AppController } from '../app.controller';
 import { AppService } from '../app.service';
 import { AuthController } from '../auth/auth.controller';
@@ -30,6 +32,7 @@ import { createOpenApiDocument } from './openapi';
 const serviceTokens = [
   AccessService,
   AnnouncementsService,
+  ResidentAnnouncementFeedService,
   AppService,
   AuthService,
   DashboardService,
@@ -44,6 +47,7 @@ const serviceTokens = [
   controllers: [
     AccessController,
     AnnouncementsController,
+    ResidentAnnouncementsController,
     AppController,
     AuthController,
     DashboardController,

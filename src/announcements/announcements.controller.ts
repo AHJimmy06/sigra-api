@@ -57,6 +57,7 @@ export class AnnouncementsController {
 
   @Patch(':id')
   @Roles(Role.ADMIN)
+  @ApiOkResponse({ type: AnnouncementResponseDto })
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new AnnouncementPatchPipe()) command: AnnouncementPatchCommand,

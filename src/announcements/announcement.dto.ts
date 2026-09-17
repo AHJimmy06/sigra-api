@@ -9,7 +9,7 @@ import { PaginationQueryDto } from '../common/pagination.dto';
 import { IsEnum } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { AnnouncementStatus } from './announcement.entity';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateAnnouncementDto {
   @Transform(({ value }: { value: unknown }) =>
@@ -49,6 +49,21 @@ export class UpdateAnnouncementDto {
 }
 
 export class AnnouncementPaginationQueryDto extends PaginationQueryDto {
+  @ApiPropertyOptional({ type: Number, minimum: 1, default: 1 })
+  override page = 1;
+
+  @ApiPropertyOptional({
+    type: Number,
+    minimum: 1,
+    maximum: 100,
+    default: 10,
+  })
+  override pageSize = 10;
+
+  @ApiPropertyOptional({ maxLength: 160 })
+  override search?: string = undefined;
+
+  @ApiPropertyOptional({ enum: AnnouncementStatus })
   @IsOptional()
   @IsEnum(AnnouncementStatus)
   status?: AnnouncementStatus;

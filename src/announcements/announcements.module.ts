@@ -7,6 +7,7 @@ import { AnnouncementChangeClock } from './announcement-change-clock.entity';
 import { AnnouncementsController } from './announcements.controller';
 import { AnnouncementsService } from './announcements.service';
 import { ResidentAnnouncementFeedService } from './resident-announcement-feed.service';
+import { ResidentAnnouncementsController } from './resident-announcements.controller';
 
 @Module({
   imports: [
@@ -17,7 +18,7 @@ import { ResidentAnnouncementFeedService } from './resident-announcement-feed.se
     ]),
     AuthModule,
   ],
-  controllers: [AnnouncementsController],
+  controllers: [AnnouncementsController, ResidentAnnouncementsController],
   providers: [AnnouncementsService, ResidentAnnouncementFeedService],
 })
 export class AnnouncementsModule {}

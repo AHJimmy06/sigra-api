@@ -8,6 +8,7 @@ import {
 import { Request, Response } from 'express';
 import {
   ContractValidationException,
+  CursorInvalidException,
   HttpErrorBody,
   HttpErrorCode,
   SAFE_PUBLIC_4XX_MESSAGES,
@@ -17,6 +18,7 @@ import { getRequestId } from './request-id.middleware';
 const ERROR_DEFAULTS: Record<number, [HttpErrorCode, string]> = {
   400: ['BAD_REQUEST', 'Bad request'],
   401: ['UNAUTHORIZED', 'Unauthorized'],
+  402: ['BAD_REQUEST', 'Bad request'],
   403: ['FORBIDDEN', 'Forbidden'],
   404: ['NOT_FOUND', 'Not found'],
   409: ['CONFLICT', 'Conflict'],
@@ -34,6 +36,16 @@ export function normalizeHttpException(exception: unknown): {
         code: 'VALIDATION_ERROR',
         message: 'Validation failed',
         details: exception.details,
+      },
+    };
+  }
+  if (exception instanceof CursorInvalidException) {
+    return {
+      status: HttpStatus.BAD_REQUEST,
+      body: {
+        code: 'CURSOR_INVALID',
+        message: exception.message,
+        details: {},
       },
     };
   }

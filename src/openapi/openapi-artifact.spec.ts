@@ -196,4 +196,62 @@ describe('Phase 0 OpenAPI artifact', () => {
       );
     }
   });
+
+  it('documents announcement administration operations', () => {
+    const listOp = document.paths['/api/announcements']?.get;
+    expect(listOp).toBeDefined();
+    expect(
+      listOp?.parameters
+        ?.map((param) => ('$ref' in param ? param.$ref : param.name))
+        .sort(),
+    ).toEqual(['page', 'pageSize', 'search', 'status'].sort());
+
+    const createOp = document.paths['/api/announcements']?.post;
+    expect(createOp?.responses['201']).toHaveProperty(
+      'content.application/json.schema.$ref',
+      '#/components/schemas/AnnouncementResponseDto',
+    );
+
+    const getOp = document.paths['/api/announcements/{id}']?.get;
+    expect(getOp?.responses['200']).toHaveProperty(
+      'content.application/json.schema.$ref',
+      '#/components/schemas/AnnouncementResponseDto',
+    );
+
+    const patchOp = document.paths['/api/announcements/{id}']?.patch;
+    expect(patchOp?.responses['200']).toHaveProperty(
+      'content.application/json.schema.$ref',
+      '#/components/schemas/AnnouncementResponseDto',
+    );
+
+    const archiveOp = document.paths['/api/announcements/{id}/archive']?.post;
+    expect(archiveOp?.responses['200']).toHaveProperty(
+      'content.application/json.schema.$ref',
+      '#/components/schemas/AnnouncementResponseDto',
+    );
+  });
+
+  it('documents resident announcement sync operation', () => {
+    const feedOp = document.paths['/api/resident/announcements']?.get;
+    expect(feedOp).toBeDefined();
+    expect(feedOp?.security).toEqual([{ bearer: [] }]);
+    expect(feedOp?.responses['200']).toHaveProperty(
+      'content.application/json.schema.$ref',
+      '#/components/schemas/ResidentAnnouncementFeedResponseDto',
+    );
+    expect(
+      feedOp?.parameters
+        ?.map((param) => ('$ref' in param ? param.$ref : param.name))
+        .sort(),
+    ).toEqual(['cursor', 'limit'].sort());
+
+    const phase0Error = document.components?.schemas?.Phase0Error as {
+      properties?: { code?: { enum?: string[] } };
+    };
+    expect(phase0Error?.properties?.code?.enum).toContain('CURSOR_INVALID');
+
+    const publicSchemas = JSON.stringify(document.components?.schemas);
+    expect(publicSchemas).not.toContain('authorIdSnapshot');
+    expect(publicSchemas).not.toContain('authorEmailSnapshot');
+  });
 });
