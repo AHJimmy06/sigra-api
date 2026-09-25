@@ -32,6 +32,9 @@ export class TicketResponseDto {
   @ApiProperty({ enum: TicketPriority }) priority!: TicketPriority;
   @ApiProperty({ format: 'date-time' }) createdAt!: string;
   @ApiProperty({ format: 'date-time' }) updatedAt!: string;
+  @ApiProperty({ required: false }) resident?: any;
+  @ApiProperty({ required: false }) attachments?: any[];
+  @ApiProperty({ required: false }) history?: any[];
 }
 
 export class PaginatedTicketsResponseDto {

@@ -4,7 +4,10 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
+import { Resident } from '../residents/resident.entity';
 
 export enum TicketStatus {
   OPEN = 'OPEN',
@@ -23,6 +26,9 @@ export class MaintenanceTicket {
   @Column({ name: 'client_request_id', type: 'uuid', unique: true })
   clientRequestId!: string;
   @Column({ name: 'resident_id', type: 'uuid' }) residentId!: string;
+  @ManyToOne(() => Resident)
+  @JoinColumn({ name: 'resident_id' })
+  resident!: Resident;
   @Column({ type: 'text' }) description!: string;
   @Column({ name: 'image_name' }) imageName!: string;
   @Column({ type: 'enum', enum: TicketStatus, default: TicketStatus.OPEN })
