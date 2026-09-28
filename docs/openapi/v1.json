@@ -576,6 +576,121 @@
         ]
       }
     },
+    "/api/access/guards/{id}/gate-authorization": {
+      "patch": {
+        "operationId": "AccessController_setGuardAuthorization",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GuardGateAuthorizationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "GUARD gate authorization updated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuardGateAuthorizationResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Phase 0 error (400)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Phase 0 error (401)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Phase 0 error (403)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Phase 0 error (404)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Phase 0 error (409)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Phase 0 error (429)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Phase 0 error (500)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase0Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Access"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/access/validate": {
       "post": {
         "operationId": "AccessController_validate",
@@ -4315,6 +4430,34 @@
           "payload",
           "expiresInSeconds",
           "contract"
+        ]
+      },
+      "GuardGateAuthorizationDto": {
+        "type": "object",
+        "properties": {
+          "authorized": {
+            "type": "boolean",
+            "description": "Whether this GUARD may validate QR access."
+          }
+        },
+        "required": [
+          "authorized"
+        ]
+      },
+      "GuardGateAuthorizationResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "authorized": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "authorized"
         ]
       },
       "ValidateAccessDto": {

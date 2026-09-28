@@ -126,6 +126,50 @@ describe('Phase 0 OpenAPI artifact', () => {
     expect(schemas).not.toHaveProperty('Resident');
   });
 
+  it('documents ADMIN-only GUARD authorization management', () => {
+    const operation =
+      document.paths['/api/access/guards/{id}/gate-authorization']?.patch;
+    if (!operation) throw new Error('Missing GUARD authorization operation');
+    expect(operation.security).toEqual([{ bearer: [] }]);
+    expect(operation.requestBody).toHaveProperty(
+      'content.application/json.schema.$ref',
+      '#/components/schemas/GuardGateAuthorizationDto',
+    );
+    expect(operation.parameters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'id', in: 'path', required: true }),
+      ]),
+    );
+    expect(
+      document.components?.schemas?.GuardGateAuthorizationDto,
+    ).toHaveProperty('properties.authorized.type', 'boolean');
+    expect(operation.responses['200']).toHaveProperty(
+      'content.application/json.schema.$ref',
+      '#/components/schemas/GuardGateAuthorizationResponseDto',
+    );
+    expect(
+      document.components?.schemas?.GuardGateAuthorizationResponseDto,
+    ).toMatchObject({
+      required: ['id', 'authorized'],
+      properties: {
+        id: { type: 'string', format: 'uuid' },
+        authorized: { type: 'boolean' },
+      },
+    });
+    expect(
+      document.components?.schemas?.GuardGateAuthorizationResponseDto,
+    ).toHaveProperty('properties.id');
+    expect(
+      Object.keys(
+        (
+          document.components?.schemas?.GuardGateAuthorizationResponseDto as {
+            properties: Record<string, unknown>;
+          }
+        ).properties,
+      ).sort(),
+    ).toEqual(['authorized', 'id']);
+  });
+
   it('documents exact critical success and error shapes', () => {
     expect(
       document.paths['/api/dashboard/metrics']?.get?.responses['200'],

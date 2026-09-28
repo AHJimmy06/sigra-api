@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsInt,
@@ -14,6 +15,20 @@ import { registerDecorator, type ValidationOptions } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PageQueryDto } from '../common/pagination.dto';
 import { AccessDecision, AccessDirection } from './access-event.entity';
+
+export class GuardGateAuthorizationDto {
+  @ApiProperty({ description: 'Whether this GUARD may validate QR access.' })
+  @IsBoolean()
+  authorized!: boolean;
+}
+
+export class GuardGateAuthorizationResponseDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty()
+  authorized!: boolean;
+}
 
 export class CreatePassDto {
   @IsInt() @Min(1) @Max(30) validDays!: number;

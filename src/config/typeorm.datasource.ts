@@ -9,6 +9,7 @@ import { HardenUnitIdentity1724600005000 } from '../migrations/1724600005000-Har
 import { HardenResidentIdentity1724600006000 } from '../migrations/1724600006000-HardenResidentIdentity';
 import { AddUnitArchiveMetadata1724600007000 } from '../migrations/1724600007000-AddUnitArchiveMetadata';
 import { AddResidentArchiveMetadata1724600008000 } from '../migrations/1724600008000-AddResidentArchiveMetadata';
+import { AddGuardGateAuthorization1724600011000 } from '../migrations/1724600011000-AddGuardGateAuthorization';
 import { AddAnnouncementAuthorSchema1724600009000 } from '../migrations/1724600009000-AddAnnouncementAuthorSchema';
 import { AddAnnouncementChangeFeed1724600010000 } from '../migrations/1724600010000-AddAnnouncementChangeFeed';
 
@@ -30,6 +31,7 @@ export default new DataSource({
     HardenResidentIdentity1724600006000,
     AddUnitArchiveMetadata1724600007000,
     AddResidentArchiveMetadata1724600008000,
+    AddGuardGateAuthorization1724600011000,
     AddAnnouncementAuthorSchema1724600009000,
     AddAnnouncementChangeFeed1724600010000,
   ],
