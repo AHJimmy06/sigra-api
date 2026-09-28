@@ -1,5 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import { createHash } from 'node:crypto';
+import { authenticator } from 'otplib';
 import {
   AccessDirection,
   AccessDecision,
@@ -271,6 +272,162 @@ describe('AccessService', () => {
     expect(result).not.toHaveProperty('residentName');
     expect(result).not.toHaveProperty('unitCode');
     expect(events.findOne).not.toHaveBeenCalled();
+  });
+
+  it('recovers a compatible allowed event after a duplicate-race save failure', async () => {
+    const secret = authenticator.generateSecret();
+    const pass = {
+      id: 'pass-race',
+      residentId: 'resident-1',
+      encryptedSecret: 'encrypted-secret',
+      validUntil: new Date(Date.now() + 60_000),
+      revokedAt: null,
+      resident: {
+        id: 'resident-1',
+        unitId: 'unit-1',
+        active: true,
+        unit: { id: 'unit-1', active: true },
+      },
+    } as AccessPass;
+    const qrPayload = JSON.stringify({
+      v: 1,
+      passId: pass.id,
+      token: authenticator.generate(secret),
+    });
+    const clientEventId = '66666666-6666-4666-8666-666666666666';
+    const requestFingerprint = createHash('sha256')
+      .update(
+        JSON.stringify({
+          direction: AccessDirection.ENTRY,
+          guardId: guard.sub,
+          qrPayload,
+        }),
+      )
+      .digest('hex');
+    const duplicate = {
+      id: 'event-duplicate',
+      clientEventId,
+      requestFingerprint,
+      decision: AccessDecision.ALLOWED,
+      reason: 'VALID_PASS',
+      direction: AccessDirection.ENTRY,
+      occurredAt: new Date('2026-09-07T12:00:00.000Z'),
+      requestId: 'request-original',
+    } as AccessEvent;
+    const events = {
+      findOneBy: jest
+        .fn()
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(duplicate),
+      findOne: jest.fn().mockResolvedValue({
+        ...duplicate,
+        resident: { name: 'Ana Garcia', unit: { code: 'A-101' } },
+      }),
+    };
+    const transactionEvents = {
+      create: (value: AccessEvent) => value,
+      save: jest.fn((value: AccessEvent) => {
+        expect(value).toMatchObject({
+          passId: pass.id,
+          residentId: pass.residentId,
+          unitId: pass.resident.unitId,
+          decision: AccessDecision.ALLOWED,
+          reason: 'VALID_PASS',
+        });
+        return Promise.reject(new Error('duplicate key'));
+      }),
+    };
+    const manager = {
+      getRepository: jest.fn().mockReturnValue(transactionEvents),
+    };
+    const dataSource = {
+      transaction: jest.fn((work: (value: typeof manager) => unknown) =>
+        work(manager),
+      ),
+    };
+    const service = new AccessService(
+      { findOneBy: jest.fn().mockResolvedValue(pass) } as never,
+      events as never,
+      {} as never,
+      { decrypt: jest.fn().mockReturnValue(secret) } as never,
+      dataSource as never,
+      { record: jest.fn() },
+      config as never,
+    );
+
+    const result = await service.validate(
+      qrPayload,
+      clientEventId,
+      AccessDirection.ENTRY,
+      guard,
+      'request-retry',
+    );
+
+    expect(transactionEvents.save).toHaveBeenCalledTimes(1);
+    expect(events.findOneBy).toHaveBeenCalledTimes(2);
+    expect(events.findOne).toHaveBeenCalledWith({
+      where: { id: duplicate.id },
+      relations: { resident: { unit: true } },
+    });
+    expect(result).toMatchObject({
+      id: duplicate.id,
+      decision: AccessDecision.ALLOWED,
+      residentName: 'Ana Garcia',
+      unitCode: 'A-101',
+    });
+  });
+
+  it('does not expose identity or fail when an allowed retry has no resident relation', async () => {
+    const qrPayload = JSON.stringify({
+      v: 1,
+      passId: '88888888-8888-4888-8888-888888888888',
+      token: '123456',
+    });
+    const existing = {
+      id: 'event-without-resident',
+      clientEventId: '77777777-7777-4777-8777-777777777777',
+      requestFingerprint: createHash('sha256')
+        .update(
+          JSON.stringify({
+            direction: AccessDirection.ENTRY,
+            guardId: guard.sub,
+            qrPayload,
+          }),
+        )
+        .digest('hex'),
+      decision: AccessDecision.ALLOWED,
+      reason: 'VALID_PASS',
+      direction: AccessDirection.ENTRY,
+      occurredAt: new Date('2026-09-07T12:00:00.000Z'),
+    } as AccessEvent;
+    const events = {
+      findOneBy: jest.fn().mockResolvedValue(existing),
+      findOne: jest.fn().mockResolvedValue({ ...existing, resident: null }),
+    };
+    const service = new AccessService(
+      {} as never,
+      events as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      config as never,
+    );
+
+    const result = await service.validate(
+      qrPayload,
+      existing.clientEventId,
+      AccessDirection.ENTRY,
+      guard,
+      'request-retry',
+    );
+
+    expect(events.findOne).toHaveBeenCalledWith({
+      where: { id: existing.id },
+      relations: { resident: { unit: true } },
+    });
+    expect(result).not.toHaveProperty('residentName');
+    expect(result).not.toHaveProperty('unitCode');
   });
 
   it('records malformed QR payloads as denied', async () => {
