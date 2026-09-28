@@ -20,11 +20,12 @@ describe('AccessController authorization boundary', () => {
     expect(rolesFor('create')).toEqual([Role.RESIDENT]);
     expect(rolesFor('qr')).toEqual([Role.RESIDENT]);
     expect(rolesFor('validate')).toEqual([Role.GUARD]);
+    expect(rolesFor('setGuardAuthorization')).toEqual([Role.ADMIN]);
   });
 
   it('forwards validated history queries to the access service', async () => {
     const access = { listEvents: jest.fn().mockResolvedValue({ items: [] }) };
-    const controller = new AccessController(access as never);
+    const controller = new AccessController(access as never, {} as never);
     const query = { page: 2, pageSize: 25 };
 
     await controller.listEvents(query);
@@ -36,7 +37,7 @@ describe('AccessController authorization boundary', () => {
     const access = {
       currentQr: jest.fn().mockResolvedValue({ payload: '{}' }),
     };
-    const controller = new AccessController(access as never);
+    const controller = new AccessController(access as never, {} as never);
 
     await controller.qr(
       {

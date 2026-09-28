@@ -5,6 +5,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   ParseUUIDPipe,
   Post,
   Query,
@@ -27,15 +28,22 @@ import {
   PaginatedAccessEventsResponseDto,
   ValidateAccessDto,
   ValidateAccessResponseDto,
+  GuardGateAuthorizationDto,
+  GuardGateAuthorizationResponseDto,
 } from './access.dto';
 import { AccessService } from './access.service';
+import { GuardAuthorizationService } from './guard-authorization.service';
+import { GuardGateAuthorizationGuard } from './guard-gate-authorization.guard';
 import { getRequestId } from '../common/http/request-id.middleware';
 import { ThrottlerGuard } from '@nestjs/throttler';
 
 @Controller('access')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AccessController {
-  constructor(private readonly access: AccessService) {}
+  constructor(
+    private readonly access: AccessService,
+    private readonly guardAuthorization: GuardAuthorizationService,
+  ) {}
   @Get('events')
   @Roles(Role.ADMIN)
   @ApiOkResponse({ type: PaginatedAccessEventsResponseDto })
@@ -66,10 +74,30 @@ export class AccessController {
   qr(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
     return this.access.currentQr(user.residentId!, id);
   }
+  @Patch('guards/:id/gate-authorization')
+  @Roles(Role.ADMIN)
+  @ApiOkResponse({
+    type: GuardGateAuthorizationResponseDto,
+    description: 'GUARD gate authorization updated.',
+  })
+  setGuardAuthorization(
+    @CurrentUser() actor: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: GuardGateAuthorizationDto,
+    @Req() request: Request,
+  ) {
+    return this.guardAuthorization.setAuthorization(
+      id,
+      dto.authorized,
+      actor,
+      request.ip,
+    );
+  }
+
   @Post('validate')
   @HttpCode(HttpStatus.OK)
   @Roles(Role.GUARD)
-  @UseGuards(ThrottlerGuard)
+  @UseGuards(GuardGateAuthorizationGuard, ThrottlerGuard)
   @ApiOkResponse({ type: ValidateAccessResponseDto })
   validate(
     @CurrentUser() user: AuthUser,

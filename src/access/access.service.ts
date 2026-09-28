@@ -245,7 +245,15 @@ export class AccessService {
       throw error;
     }
   }
-  private toValidationResponse(event: AccessEvent) {
+  private async toValidationResponse(event: AccessEvent) {
+    const identity =
+      event.decision === AccessDecision.ALLOWED
+        ? await this.events.findOne({
+            where: { id: event.id },
+            relations: { resident: { unit: true } },
+          })
+        : null;
+    const resident = identity?.resident;
     return {
       id: event.id,
       decision: event.decision,
@@ -253,6 +261,12 @@ export class AccessService {
       direction: event.direction,
       occurredAt: event.occurredAt.toISOString(),
       requestId: event.requestId,
+      ...(resident
+        ? {
+            residentName: resident.name,
+            unitCode: resident.unit?.code ?? null,
+          }
+        : {}),
     };
   }
   private toPublic(pass: AccessPass) {

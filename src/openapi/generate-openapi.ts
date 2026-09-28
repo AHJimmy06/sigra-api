@@ -7,6 +7,8 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { AccessController } from '../access/access.controller';
 import { AccessService } from '../access/access.service';
+import { GuardAuthorizationService } from '../access/guard-authorization.service';
+import { GuardGateAuthorizationGuard } from '../access/guard-gate-authorization.guard';
 import { AnnouncementsController } from '../announcements/announcements.controller';
 import { AnnouncementsService } from '../announcements/announcements.service';
 import { ResidentAnnouncementFeedService } from '../announcements/resident-announcement-feed.service';
@@ -31,6 +33,7 @@ import { createOpenApiDocument } from './openapi';
 
 const serviceTokens = [
   AccessService,
+  GuardAuthorizationService,
   AnnouncementsService,
   ResidentAnnouncementFeedService,
   AppService,
@@ -57,7 +60,12 @@ const serviceTokens = [
   ],
   providers: [
     ...serviceTokens.map((provide) => ({ provide, useValue: {} })),
-    ...[JwtAuthGuard, RolesGuard, ThrottlerGuard].map((provide) => ({
+    ...[
+      JwtAuthGuard,
+      RolesGuard,
+      GuardGateAuthorizationGuard,
+      ThrottlerGuard,
+    ].map((provide) => ({
       provide,
       useValue: { canActivate: () => true },
     })),

@@ -115,6 +115,37 @@ describe('SeedService', () => {
     expect(admin.displayName).toBe('Existing Admin');
   });
 
+  it('never auto-grants the development GUARD account', async () => {
+    const users = {
+      existsBy: jest.fn().mockResolvedValue(false),
+      create: jest.fn((value: Record<string, unknown>) => value),
+      save: jest.fn((value: Record<string, unknown>) =>
+        Promise.resolve({ ...value, id: 'guard-1' }),
+      ),
+    };
+    const restore = withSeedEnvironment({
+      SEED_GUARD_EMAIL: 'guard@example.com',
+      SEED_GUARD_PASSWORD: password,
+    });
+
+    try {
+      await new SeedService(
+        users as never,
+        {} as never,
+      ).onApplicationBootstrap();
+    } finally {
+      restore();
+    }
+
+    expect(users.save).toHaveBeenCalledWith(
+      expect.objectContaining({ role: Role.GUARD }),
+    );
+    expect(users.save.mock.calls[0]?.[0]).not.toHaveProperty(
+      'guardGateAuthorized',
+      true,
+    );
+  });
+
   it('trims the configured resident name before creating resident data', async () => {
     const users = {
       existsBy: jest.fn().mockResolvedValue(false),
