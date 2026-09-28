@@ -4371,6 +4371,13 @@
           },
           "requestId": {
             "type": "string"
+          },
+          "residentName": {
+            "type": "string"
+          },
+          "unitCode": {
+            "type": "string",
+            "nullable": true
           }
         },
         "required": [

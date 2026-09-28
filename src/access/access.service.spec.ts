@@ -1,4 +1,5 @@
 import { ConfigService } from '@nestjs/config';
+import { createHash } from 'node:crypto';
 import {
   AccessDirection,
   AccessDecision,
@@ -132,6 +133,17 @@ describe('AccessService', () => {
       findOneBy: jest.fn(({ clientEventId }: { clientEventId: string }) =>
         Promise.resolve(events.get(clientEventId) ?? null),
       ),
+      findOne: jest.fn(({ where }: { where: { id: string } }) => {
+        const event = [...events.values()].find(({ id }) => id === where.id);
+        return Promise.resolve(
+          event
+            ? {
+                ...event,
+                resident: { name: 'Ana Garcia', unit: { code: 'A-101' } },
+              }
+            : null,
+        );
+      }),
       save: jest.fn((value: AccessEvent) => {
         const saved = {
           ...value,
@@ -195,8 +207,15 @@ describe('AccessService', () => {
       reason: 'VALID_PASS',
       occurredAt: occurredAt.toISOString(),
       requestId: 'request-1',
+      residentName: 'Ana Garcia',
+      unitCode: 'A-101',
     });
     expect(second.id).toBe(first.id);
+    expect(second).toMatchObject({
+      residentName: 'Ana Garcia',
+      unitCode: 'A-101',
+    });
+    expect(eventRepository.findOne).toHaveBeenCalledTimes(2);
     expect(eventRepository.save).toHaveBeenCalledTimes(1);
     expect(audit.record).toHaveBeenCalledTimes(1);
     expect(audit.record.mock.calls[0]?.[0]).toBe(manager);
@@ -205,6 +224,53 @@ describe('AccessService', () => {
       action: 'ACCESS_VALIDATED',
       metadata: { requestId: 'request-1' },
     });
+  });
+
+  it('does not disclose identity on a denied retry with resident relations', async () => {
+    const existing = {
+      id: 'event-denied',
+      clientEventId: '55555555-5555-4555-8555-555555555555',
+      requestFingerprint: createHash('sha256')
+        .update(
+          JSON.stringify({
+            direction: AccessDirection.ENTRY,
+            guardId: guard.sub,
+            qrPayload: '{}',
+          }),
+        )
+        .digest('hex'),
+      decision: AccessDecision.DENIED,
+      reason: 'PASS_REVOKED',
+      direction: AccessDirection.ENTRY,
+      occurredAt: new Date('2026-09-07T12:00:00.000Z'),
+      requestId: 'request-1',
+      resident: { name: 'Ana Garcia', unit: { code: 'A-101' } },
+    } as unknown as AccessEvent;
+    const events = {
+      findOneBy: jest.fn().mockResolvedValue(existing),
+      findOne: jest.fn(),
+    };
+    const service = new AccessService(
+      {} as never,
+      events as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      config as never,
+    );
+
+    const result = await service.validate(
+      '{}',
+      existing.clientEventId,
+      AccessDirection.ENTRY,
+      guard,
+      'request-2',
+    );
+
+    expect(result).not.toHaveProperty('residentName');
+    expect(result).not.toHaveProperty('unitCode');
+    expect(events.findOne).not.toHaveBeenCalled();
   });
 
   it('records malformed QR payloads as denied', async () => {
@@ -276,6 +342,7 @@ describe('AccessService', () => {
     expect(JSON.stringify(result)).not.toContain('encrypted-secret');
     expect(JSON.stringify(result)).not.toContain('decrypted-secret');
     expect(result.contract).toBe('sigra.access.v1');
+    expect(result.expiresInSeconds).toBe(30);
   });
 
   it('rejects an incompatible retry without evaluating or storing it again', async () => {
