@@ -16,10 +16,7 @@ describe('Resident announcement sync HTTP proof', () => {
 
       // 1. Authorization: anonymous -> 401, admin -> 403, resident -> 200
       await api.anonymous().get('/api/resident/announcements').expect(401);
-      await api
-        .authorized()
-        .get('/api/resident/announcements')
-        .expect(403);
+      await api.authorized().get('/api/resident/announcements').expect(403);
 
       const initialEmpty = await api
         .authorized(residentToken)
@@ -126,7 +123,9 @@ describe('Resident announcement sync HTTP proof', () => {
       // Page 2 using nextCursor
       const page2 = await api
         .authorized(residentToken)
-        .get(`/api/resident/announcements?cursor=${page1.body.nextCursor}&limit=1`)
+        .get(
+          `/api/resident/announcements?cursor=${page1.body.nextCursor}&limit=1`,
+        )
         .expect(200);
 
       expect(page2.body.items).toHaveLength(1);
@@ -141,7 +140,9 @@ describe('Resident announcement sync HTTP proof', () => {
       // Replay idempotency
       const page2Replay = await api
         .authorized(residentToken)
-        .get(`/api/resident/announcements?cursor=${page1.body.nextCursor}&limit=1`)
+        .get(
+          `/api/resident/announcements?cursor=${page1.body.nextCursor}&limit=1`,
+        )
         .expect(200);
       expect(page2Replay.body.items).toEqual(page2.body.items);
 

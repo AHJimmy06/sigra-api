@@ -18,9 +18,7 @@ import {
 @Controller('resident/announcements')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ResidentAnnouncementsController {
-  constructor(
-    private readonly feedService: ResidentAnnouncementFeedService,
-  ) {}
+  constructor(private readonly feedService: ResidentAnnouncementFeedService) {}
 
   @Get()
   @Roles(Role.RESIDENT)
@@ -29,10 +27,10 @@ export class ResidentAnnouncementsController {
     @Query() query: ResidentAnnouncementQueryDto,
   ): Promise<ResidentAnnouncementFeedResponseDto> {
     try {
-      return (await this.feedService.getFeed({
+      return await this.feedService.getFeed({
         cursor: query.cursor,
         limit: query.limit,
-      })) as ResidentAnnouncementFeedResponseDto;
+      });
     } catch (error) {
       if (error instanceof AnnouncementFeedCursorError) {
         throw new CursorInvalidException(error.message);

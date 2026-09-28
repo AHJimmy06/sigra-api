@@ -71,7 +71,7 @@ describe('ResidentAnnouncementsController', () => {
     const reflector = new Reflector();
     const roles = reflector.get<Role[]>(
       ROLES_KEY,
-      ResidentAnnouncementsController.prototype.getFeed,
+      Reflect.get(ResidentAnnouncementsController.prototype, 'getFeed'),
     );
     expect(roles).toEqual([Role.RESIDENT]);
   });

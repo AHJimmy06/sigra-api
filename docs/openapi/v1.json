@@ -3183,7 +3183,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MaintenanceTicket"
+                  "$ref": "#/components/schemas/TicketResponseDto"
                 }
               }
             }
@@ -4860,6 +4860,82 @@
           }
         }
       },
+      "TicketResidentSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "TicketAttachmentDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "url",
+          "contentType"
+        ]
+      },
+      "TicketHistoryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "from": {
+            "type": "string",
+            "nullable": true
+          },
+          "to": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "actorName": {
+            "nullable": true,
+            "enum": [
+              "ADMIN",
+              "GUARD",
+              "RESIDENT"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "from",
+          "to",
+          "createdAt",
+          "actorName"
+        ]
+      },
       "TicketResponseDto": {
         "type": "object",
         "properties": {
@@ -4905,6 +4981,21 @@
           "updatedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "resident": {
+            "$ref": "#/components/schemas/TicketResidentSummaryDto"
+          },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TicketAttachmentDto"
+            }
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TicketHistoryDto"
+            }
           }
         },
         "required": [
@@ -4977,62 +5068,6 @@
         },
         "required": [
           "status"
-        ]
-      },
-      "MaintenanceTicket": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "clientRequestId": {
-            "type": "string"
-          },
-          "residentId": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "imageName": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "OPEN",
-              "IN_PROGRESS",
-              "RESOLVED"
-            ]
-          },
-          "priority": {
-            "type": "string",
-            "enum": [
-              "LOW",
-              "MEDIUM",
-              "HIGH",
-              "URGENT"
-            ]
-          },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "updatedAt": {
-            "format": "date-time",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "clientRequestId",
-          "residentId",
-          "description",
-          "imageName",
-          "status",
-          "priority",
-          "createdAt",
-          "updatedAt"
         ]
       },
       "UnitResponseDto": {

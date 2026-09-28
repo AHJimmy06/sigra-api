@@ -54,6 +54,49 @@ describe('TicketsService', () => {
     expect(query.skip).toHaveBeenCalledWith(10);
   });
 
+  it('projects ticket details without internal resident fields', async () => {
+    const ticket = {
+      id: 'ticket-1',
+      clientRequestId: 'request-1',
+      residentId: 'resident-1',
+      description: 'Leaking pipe',
+      imageName: 'image.jpg',
+      status: TicketStatus.OPEN,
+      priority: 'NORMAL',
+      createdAt: new Date('2025-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2025-01-01T00:00:00.000Z'),
+      resident: {
+        id: 'resident-1',
+        name: 'Alex Resident',
+        phone: '555-0100',
+        active: true,
+        unitId: 'unit-1',
+        unit: { id: 'unit-1', code: 'A1' },
+      },
+    };
+    const query = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(ticket),
+    };
+    const service = new TicketsService(
+      { createQueryBuilder: jest.fn().mockReturnValue(query) } as never,
+      { query: jest.fn().mockResolvedValue([]) } as never,
+      {} as never,
+    );
+
+    const result = await service.findOne('ticket-1', admin);
+
+    expect(result.resident).toEqual({
+      id: 'resident-1',
+      name: 'Alex Resident',
+    });
+    expect(result).not.toHaveProperty('phone');
+    expect(result.resident).not.toHaveProperty('unit');
+    expect(result.resident).not.toHaveProperty('unitId');
+  });
+
   it('rejects ticket listing for guards', async () => {
     const query = queryBuilder();
     const service = new TicketsService(

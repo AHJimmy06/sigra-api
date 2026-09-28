@@ -12,6 +12,18 @@ import { Role } from '../common/role.enum';
 import { TicketPaginationQueryDto, UpdateTicketDto } from './ticket.dto';
 import { MaintenanceTicket, TicketStatus } from './ticket.entity';
 
+interface TicketHistoryRow {
+  audit_id: string;
+  metadata: {
+    status?: {
+      from?: string | null;
+      to?: string | null;
+    };
+  } | null;
+  created_at: Date;
+  actor_role: Role | null;
+}
+
 const ALLOWED_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
   [TicketStatus.OPEN]: [TicketStatus.IN_PROGRESS, TicketStatus.RESOLVED],
   [TicketStatus.IN_PROGRESS]: [TicketStatus.RESOLVED],
@@ -60,26 +72,41 @@ export class TicketsService {
     const ticket = await query.getOne();
     if (!ticket) throw new NotFoundException('Ticket not found');
 
-    const history = await this.dataSource.query(
+    const history = await this.dataSource.query<TicketHistoryRow[]>(
       `SELECT * FROM audit_logs WHERE resource_type = 'TICKET' AND resource_id = $1 ORDER BY created_at ASC`,
-      [id]
+      [id],
     );
 
     return {
-      ...ticket,
-      attachments: ticket.imageName ? [{
-        id: ticket.imageName,
-        name: ticket.imageName,
-        url: `/api/tickets/images/${ticket.imageName}`,
-        contentType: 'image/jpeg'
-      }] : [],
-      history: history.map((h: any) => ({
+      id: ticket.id,
+      clientRequestId: ticket.clientRequestId,
+      residentId: ticket.residentId,
+      description: ticket.description,
+      imageName: ticket.imageName,
+      status: ticket.status,
+      priority: ticket.priority,
+      createdAt: ticket.createdAt,
+      updatedAt: ticket.updatedAt,
+      resident: ticket.resident
+        ? { id: ticket.resident.id, name: ticket.resident.name }
+        : undefined,
+      attachments: ticket.imageName
+        ? [
+            {
+              id: ticket.imageName,
+              name: ticket.imageName,
+              url: `/api/tickets/images/${ticket.imageName}`,
+              contentType: 'image/jpeg',
+            },
+          ]
+        : [],
+      history: history.map((h) => ({
         id: h.audit_id,
         from: h.metadata?.status?.from || null,
         to: h.metadata?.status?.to || null,
         createdAt: h.created_at,
-        actorName: h.actor_role
-      }))
+        actorName: h.actor_role,
+      })),
     };
   }
 
@@ -137,7 +164,7 @@ export class TicketsService {
         lock: { mode: 'pessimistic_write' },
       });
       if (!ticket) throw new NotFoundException('Ticket not found');
-      
+
       if (ticket.status === dto.status) {
         return ticket;
       }

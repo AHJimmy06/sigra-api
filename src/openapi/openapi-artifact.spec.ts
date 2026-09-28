@@ -104,6 +104,28 @@ describe('Phase 0 OpenAPI artifact', () => {
     });
   });
 
+  it('documents public ticket detail DTO schemas', () => {
+    const schemas = document.components?.schemas;
+    expect(schemas).toHaveProperty(
+      'TicketResponseDto.properties.resident.$ref',
+      '#/components/schemas/TicketResidentSummaryDto',
+    );
+    expect(schemas).toHaveProperty(
+      'TicketResponseDto.properties.attachments.items.$ref',
+      '#/components/schemas/TicketAttachmentDto',
+    );
+    expect(schemas).toHaveProperty(
+      'TicketResponseDto.properties.history.items.$ref',
+      '#/components/schemas/TicketHistoryDto',
+    );
+    expect(schemas).toHaveProperty('TicketResidentSummaryDto.properties.id');
+    expect(schemas).toHaveProperty('TicketResidentSummaryDto.properties.name');
+    expect(schemas).not.toHaveProperty(
+      'TicketResidentSummaryDto.properties.phone',
+    );
+    expect(schemas).not.toHaveProperty('Resident');
+  });
+
   it('documents exact critical success and error shapes', () => {
     expect(
       document.paths['/api/dashboard/metrics']?.get?.responses['200'],

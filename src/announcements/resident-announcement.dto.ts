@@ -4,7 +4,8 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ResidentAnnouncementQueryDto {
   @ApiPropertyOptional({
-    description: 'Opaque versioned cursor representing synchronization position.',
+    description:
+      'Opaque versioned cursor representing synchronization position.',
   })
   @IsOptional()
   @IsString()
@@ -76,8 +77,7 @@ export class ResidentAnnouncementTombstoneItemDto {
 }
 
 export type ResidentAnnouncementFeedItem =
-  | ResidentAnnouncementUpsertItemDto
-  | ResidentAnnouncementTombstoneItemDto;
+  ResidentAnnouncementUpsertItemDto | ResidentAnnouncementTombstoneItemDto;
 
 export class ResidentAnnouncementFeedResponseDto {
   @ApiProperty({
