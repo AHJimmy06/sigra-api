@@ -6,6 +6,7 @@ import { MaintenanceTicket } from './ticket.entity';
 import { TicketImageStorage } from './ticket-image.storage';
 import { TicketsController } from './tickets.controller';
 import { TicketsService } from './tickets.service';
+import { TicketResponseDto } from './ticket.dto';
 
 const resident = {
   sub: 'user-1',
@@ -21,6 +22,20 @@ const png = {
   mimetype: 'image/png',
   buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
 } as Express.Multer.File;
+
+describe('TicketsController Swagger responses', () => {
+  it('documents ticket status updates with the public response DTO', () => {
+    const responses = Reflect.getMetadata(
+      'swagger/apiResponse',
+      Object.getOwnPropertyDescriptor(
+        TicketsController.prototype,
+        'updateStatus',
+      )?.value as object,
+    ) as Record<string, { type: unknown }>;
+
+    expect(responses['200'].type).toBe(TicketResponseDto);
+  });
+});
 
 describe('TicketsController uploads', () => {
   let directory: string;

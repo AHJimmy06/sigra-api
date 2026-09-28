@@ -9,6 +9,7 @@ import { IsOptional } from 'class-validator';
 import { PaginationQueryDto } from '../common/pagination.dto';
 import { TicketPriority, TicketStatus } from './ticket.entity';
 import { ApiProperty } from '@nestjs/swagger';
+import { Role } from '../common/role.enum';
 export class CreateTicketDto {
   @IsUUID() clientRequestId!: string;
   @IsString() @MinLength(5) @MaxLength(2000) description!: string;
@@ -22,6 +23,26 @@ export class TicketPaginationQueryDto extends PaginationQueryDto {
   @IsOptional() @IsEnum(TicketPriority) priority?: TicketPriority;
 }
 
+export class TicketResidentSummaryDto {
+  @ApiProperty({ format: 'uuid' }) id!: string;
+  @ApiProperty() name!: string;
+}
+
+export class TicketAttachmentDto {
+  @ApiProperty() id!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty() url!: string;
+  @ApiProperty() contentType!: string;
+}
+
+export class TicketHistoryDto {
+  @ApiProperty({ format: 'uuid' }) id!: string;
+  @ApiProperty({ nullable: true }) from!: string | null;
+  @ApiProperty({ nullable: true }) to!: string | null;
+  @ApiProperty({ format: 'date-time' }) createdAt!: string;
+  @ApiProperty({ enum: Role, nullable: true }) actorName!: Role | null;
+}
+
 export class TicketResponseDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty({ format: 'uuid' }) clientRequestId!: string;
@@ -32,6 +53,12 @@ export class TicketResponseDto {
   @ApiProperty({ enum: TicketPriority }) priority!: TicketPriority;
   @ApiProperty({ format: 'date-time' }) createdAt!: string;
   @ApiProperty({ format: 'date-time' }) updatedAt!: string;
+  @ApiProperty({ type: TicketResidentSummaryDto, required: false })
+  resident?: TicketResidentSummaryDto;
+  @ApiProperty({ type: [TicketAttachmentDto], required: false })
+  attachments?: TicketAttachmentDto[];
+  @ApiProperty({ type: [TicketHistoryDto], required: false })
+  history?: TicketHistoryDto[];
 }
 
 export class PaginatedTicketsResponseDto {

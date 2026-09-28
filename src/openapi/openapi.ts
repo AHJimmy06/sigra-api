@@ -33,6 +33,7 @@ export function createOpenApiDocument(app: INestApplication): OpenAPIObject {
         type: 'string',
         enum: [
           'VALIDATION_ERROR',
+          'CURSOR_INVALID',
           'BAD_REQUEST',
           'UNAUTHORIZED',
           'FORBIDDEN',

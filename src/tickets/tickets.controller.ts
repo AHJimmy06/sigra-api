@@ -116,6 +116,7 @@ export class TicketsController {
 
   @Patch(':id/status')
   @Roles(Role.ADMIN)
+  @ApiOkResponse({ type: TicketResponseDto })
   updateStatus(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateTicketDto,
