@@ -142,7 +142,7 @@ export class AccessService {
     };
     return {
       payload: JSON.stringify(payload),
-      expiresInSeconds: 30,
+      expiresInSeconds: 600,
       contract: 'sigra.access.v1',
     };
   }
@@ -159,7 +159,14 @@ export class AccessService {
       direction,
       actor.sub,
     );
-    const existing = await this.events.findOneBy({ clientEventId });
+    const existing = await this.events.findOne({
+      where: { clientEventId },
+      relations: {
+        resident: {
+          unit: true,
+        },
+      },
+    });
     if (existing) {
       assertCompatibleRetry(existing, requestFingerprint);
       return this.toValidationResponse(existing);
@@ -169,32 +176,38 @@ export class AccessService {
     let residentId: string | null = null;
     let unitId: string | null = null;
     let decision = AccessDecision.DENIED;
-    let reason = 'INVALID_QR';
+    let reason = 'INVALID';
+    let residentInfo: { name: string; unitCode: string | null } | undefined;
     try {
       payload = JSON.parse(qrPayload) as QrPayloadV1;
       if (payload.v !== 1 || !payload.passId || !/^\d{6}$/.test(payload.token))
         throw new Error('contract');
       const pass = await this.passes.findOneBy({ id: payload.passId });
-      if (!pass) reason = 'PASS_NOT_FOUND';
+      if (!pass) reason = 'INVALID';
       else {
         persistedPassId = pass.id;
         residentId = pass.residentId;
         unitId = pass.resident.unitId;
-        if (pass.revokedAt) reason = 'PASS_REVOKED';
-        else if (pass.validUntil <= new Date()) reason = 'PASS_EXPIRED';
-        else if (!pass.resident.active || !pass.resident.unit.active)
-          reason = 'ACCESS_REVOKED';
+        residentInfo = {
+          name: pass.resident.name,
+          unitCode: pass.resident.unit?.code ?? null,
+        };
+        if (pass.revokedAt) reason = 'EXPIRED';
+        else if (pass.validUntil <= new Date()) reason = 'EXPIRED';
+        else if (!pass.resident.active) reason = 'RESIDENT_INACTIVE';
+        else if (!pass.resident.unit?.active) reason = 'UNIT_INACTIVE';
         else {
           const verifier = authenticator.clone();
-          verifier.options = { window: 1 };
+          // window: 20 significa 20 pasos de 30 segundos (10 minutos de tolerancia)
+          verifier.options = { window: 20 };
           const valid = verifier.check(
             payload.token,
             this.crypto.decrypt(pass.encryptedSecret),
           );
           if (valid) {
             decision = AccessDecision.ALLOWED;
-            reason = 'VALID_PASS';
-          } else reason = 'INVALID_OR_EXPIRED_TOKEN';
+            reason = 'ALLOWED';
+          } else reason = 'INVALID_TOTP';
         }
       }
     } catch {
@@ -235,9 +248,16 @@ export class AccessService {
         });
         return saved;
       });
-      return this.toValidationResponse(event);
+      return this.toValidationResponse(event, residentInfo);
     } catch (error) {
-      const duplicate = await this.events.findOneBy({ clientEventId });
+      const duplicate = await this.events.findOne({
+        where: { clientEventId },
+        relations: {
+        resident: {
+          unit: true,
+        },
+      },
+      });
       if (duplicate) {
         assertCompatibleRetry(duplicate, requestFingerprint);
         return this.toValidationResponse(duplicate);
@@ -245,7 +265,10 @@ export class AccessService {
       throw error;
     }
   }
-  private toValidationResponse(event: AccessEvent) {
+  private toValidationResponse(
+    event: AccessEvent,
+    residentInfo?: { name: string; unitCode: string | null },
+  ) {
     return {
       id: event.id,
       decision: event.decision,
@@ -253,6 +276,8 @@ export class AccessService {
       direction: event.direction,
       occurredAt: event.occurredAt.toISOString(),
       requestId: event.requestId,
+      residentName: residentInfo?.name ?? event.resident?.name ?? undefined,
+      unitCode: residentInfo ? residentInfo.unitCode : event.resident?.unit?.code ?? undefined,
     };
   }
   private toPublic(pass: AccessPass) {

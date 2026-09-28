@@ -129,6 +129,9 @@ describe('AccessService', () => {
     };
     const eventRepository = {
       create: (value: AccessEvent) => value,
+      findOne: jest.fn(({ where: { clientEventId } }: any) =>
+        Promise.resolve(events.get(clientEventId) ?? null),
+      ),
       findOneBy: jest.fn(({ clientEventId }: { clientEventId: string }) =>
         Promise.resolve(events.get(clientEventId) ?? null),
       ),
@@ -192,7 +195,7 @@ describe('AccessService', () => {
     expect(first).toMatchObject({
       direction: AccessDirection.ENTRY,
       decision: AccessDecision.ALLOWED,
-      reason: 'VALID_PASS',
+      reason: 'ALLOWED',
       occurredAt: occurredAt.toISOString(),
       requestId: 'request-1',
     });
@@ -209,6 +212,7 @@ describe('AccessService', () => {
 
   it('records malformed QR payloads as denied', async () => {
     const eventRepository = {
+      findOne: jest.fn().mockResolvedValue(null),
       findOneBy: jest.fn().mockResolvedValue(null),
       create: (value: AccessEvent) => value,
       save: jest.fn((value: AccessEvent) =>
@@ -246,7 +250,7 @@ describe('AccessService', () => {
     expect(result).toMatchObject({
       direction: AccessDirection.ENTRY,
       decision: AccessDecision.DENIED,
-      reason: 'INVALID_QR',
+      reason: 'INVALID',
       requestId: 'request-1',
     });
   });
@@ -284,7 +288,10 @@ describe('AccessService', () => {
       clientEventId: '22222222-2222-4222-8222-222222222222',
       requestFingerprint: 'different-fingerprint',
     } as AccessEvent;
-    const events = { findOneBy: jest.fn().mockResolvedValue(existing) };
+    const events = {
+      findOne: jest.fn().mockResolvedValue(existing),
+      findOneBy: jest.fn().mockResolvedValue(existing),
+    };
     const transaction = jest.fn();
     const service = new AccessService(
       {} as never,
