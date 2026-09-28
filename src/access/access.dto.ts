@@ -95,6 +95,8 @@ export class ValidateAccessResponseDto {
   @ApiProperty({ enum: AccessDirection }) direction!: AccessDirection;
   @ApiProperty({ format: 'date-time' }) occurredAt!: string;
   @ApiProperty() requestId!: string;
+  @ApiProperty({ required: false }) residentName?: string;
+  @ApiProperty({ required: false }) unitCode?: string;
 }
 
 export class AccessPassResponseDto {
