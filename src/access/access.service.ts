@@ -146,6 +146,20 @@ export class AccessService {
       contract: 'sigra.access.v1',
     };
   }
+  async provision(residentId: string, id: string) {
+    const pass = await this.passes.findOneBy({ id, residentId });
+    if (!pass || pass.revokedAt || pass.validUntil <= new Date())
+      throw new NotFoundException('Active pass not found');
+    return {
+      contract: 'sigra.access.v1' as const,
+      passId: pass.id,
+      secret: this.crypto.decrypt(pass.encryptedSecret),
+      algorithm: 'SHA1' as const,
+      digits: 6 as const,
+      period: 30 as const,
+      validUntil: pass.validUntil,
+    };
+  }
   async validate(
     qrPayload: string,
     clientEventId: string,

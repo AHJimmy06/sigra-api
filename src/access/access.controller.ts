@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   HttpCode,
   HttpStatus,
   Param,
@@ -73,6 +74,16 @@ export class AccessController {
   @ApiOkResponse({ type: CurrentQrResponseDto })
   qr(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
     return this.access.currentQr(user.residentId!, id);
+  }
+  @Get('passes/:id/provision')
+  @Roles(Role.RESIDENT)
+  @Header('Cache-Control', 'no-store')
+  @Header('Pragma', 'no-cache')
+  provision(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.access.provision(user.residentId!, id);
   }
   @Patch('guards/:id/gate-authorization')
   @Roles(Role.ADMIN)
