@@ -19,6 +19,7 @@ async function bootstrap() {
       .split(',')
       .map((origin) => origin.trim()),
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    exposedHeaders: ['X-CSRF-Token', 'X-Request-Id'],
     credentials: true,
   });
   app.enableShutdownHooks();

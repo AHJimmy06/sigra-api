@@ -6,9 +6,11 @@ import {
   HttpStatus,
   Post,
   Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
-import type { Request } from 'express';
+import { randomUUID } from 'node:crypto';
+import type { Request, Response } from 'express';
 import { CurrentUser } from '../common/current-user.decorator';
 import type { AuthUser } from './auth.types';
 import { AuthService } from './auth.service';
@@ -25,11 +27,14 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(ThrottlerGuard)
   @ApiOkResponse({ type: LoginResponseDto })
-  login(
+  async login(
     @Body() dto: LoginDto,
     @Req() request: Request,
+    @Res({ passthrough: true }) response?: Response,
   ): Promise<LoginResponseDto> {
-    return this.auth.login(dto, request.ip);
+    const result = await this.auth.login(dto, request.ip);
+    response?.setHeader('X-CSRF-Token', randomUUID());
+    return result;
   }
   @Get('me')
   @UseGuards(JwtAuthGuard)
