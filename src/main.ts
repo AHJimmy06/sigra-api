@@ -15,8 +15,11 @@ async function bootstrap() {
   configureHttpApp(app);
 
   app.enableCors({
-    origin: (process.env.CORS_ORIGINS ?? 'http://localhost:5173').split(','),
-    methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+    origin: (process.env.CORS_ORIGINS ?? 'http://localhost:5173')
+      .split(',')
+      .map((origin) => origin.trim()),
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    credentials: true,
   });
   app.enableShutdownHooks();
 
