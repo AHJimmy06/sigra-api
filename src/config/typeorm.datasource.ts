@@ -12,6 +12,7 @@ import { AddResidentArchiveMetadata1724600008000 } from '../migrations/172460000
 import { AddGuardGateAuthorization1724600011000 } from '../migrations/1724600011000-AddGuardGateAuthorization';
 import { AddAnnouncementAuthorSchema1724600009000 } from '../migrations/1724600009000-AddAnnouncementAuthorSchema';
 import { AddAnnouncementChangeFeed1724600010000 } from '../migrations/1724600010000-AddAnnouncementChangeFeed';
+import { AddVisitorName1724600012000 } from '../migrations/1724600012000-AddVisitorName';
 
 export default new DataSource({
   type: 'postgres',
@@ -34,6 +35,7 @@ export default new DataSource({
     AddGuardGateAuthorization1724600011000,
     AddAnnouncementAuthorSchema1724600009000,
     AddAnnouncementChangeFeed1724600010000,
+    AddVisitorName1724600012000,
   ],
   synchronize: false,
 });

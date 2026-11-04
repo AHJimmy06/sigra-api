@@ -167,59 +167,37 @@ export class AccessService {
     actor: AuthUser,
     requestId: string,
     ip?: string,
+    visitorName?: string,
   ) {
+    if (visitorName !== undefined) {
+      if (
+        typeof visitorName !== 'string' ||
+        !visitorName.trim() ||
+        visitorName.trim().length > 120
+      )
+        throw new BadRequestException('Invalid visitor name');
+      visitorName = visitorName.trim();
+    }
     const requestFingerprint = fingerprintValidationRequest(
       qrPayload,
       direction,
       actor.sub,
+      visitorName,
     );
     const existing = await this.events.findOneBy({ clientEventId });
     if (existing) {
       assertCompatibleRetry(existing, requestFingerprint);
       return this.toValidationResponse(existing);
     }
-    let payload: QrPayloadV1 | null = null;
-    let persistedPassId: string | null = null;
-    let residentId: string | null = null;
-    let unitId: string | null = null;
-    let decision = AccessDecision.DENIED;
-    let reason = 'INVALID_QR';
-    try {
-      payload = JSON.parse(qrPayload) as QrPayloadV1;
-      if (payload.v !== 1 || !payload.passId || !/^\d{6}$/.test(payload.token))
-        throw new Error('contract');
-      const pass = await this.passes.findOneBy({ id: payload.passId });
-      if (!pass) reason = 'PASS_NOT_FOUND';
-      else {
-        persistedPassId = pass.id;
-        residentId = pass.residentId;
-        unitId = pass.resident.unitId;
-        if (pass.revokedAt) reason = 'PASS_REVOKED';
-        else if (pass.validUntil <= new Date()) reason = 'PASS_EXPIRED';
-        else if (!pass.resident.active || !pass.resident.unit.active)
-          reason = 'ACCESS_REVOKED';
-        else {
-          const verifier = authenticator.clone();
-          verifier.options = { window: 1 };
-          const valid = verifier.check(
-            payload.token,
-            this.crypto.decrypt(pass.encryptedSecret),
-          );
-          if (valid) {
-            decision = AccessDecision.ALLOWED;
-            reason = 'VALID_PASS';
-          } else reason = 'INVALID_OR_EXPIRED_TOKEN';
-        }
-      }
-    } catch {
-      payload = null;
-    }
+    const { persistedPassId, residentId, unitId, decision, reason } =
+      await this.inspectQr(qrPayload);
     try {
       const event = await this.dataSource.transaction(async (manager) => {
         const events = manager.getRepository(AccessEvent);
         const saved = await events.save(
           events.create({
             clientEventId,
+            visitorName: visitorName ?? null,
             requestFingerprint,
             requestId,
             guardId: actor.sub,
@@ -258,6 +236,80 @@ export class AccessService {
       }
       throw error;
     }
+  }
+  private async inspectQr(qrPayload: string) {
+    let persistedPassId: string | null = null;
+    let residentId: string | null = null;
+    let unitId: string | null = null;
+    let decision = AccessDecision.DENIED;
+    let reason = 'INVALID_QR';
+    let identity: AccessPass | null = null;
+    try {
+      const payload = JSON.parse(qrPayload) as QrPayloadV1;
+      if (payload.v !== 1 || !payload.passId || !/^\d{6}$/.test(payload.token))
+        throw new Error('contract');
+      const pass = await this.passes.findOneBy({ id: payload.passId });
+      if (!pass) reason = 'PASS_NOT_FOUND';
+      else {
+        identity = pass;
+        persistedPassId = pass.id;
+        residentId = pass.residentId;
+        unitId = pass.resident.unitId;
+        if (pass.revokedAt) reason = 'PASS_REVOKED';
+        else if (pass.validUntil <= new Date()) reason = 'PASS_EXPIRED';
+        else if (!pass.resident.active || !pass.resident.unit.active)
+          reason = 'ACCESS_REVOKED';
+        else {
+          const verifier = authenticator.clone();
+          verifier.options = { window: 1 };
+          const valid = verifier.check(
+            payload.token,
+            this.crypto.decrypt(pass.encryptedSecret),
+          );
+          if (valid) {
+            decision = AccessDecision.ALLOWED;
+            reason = 'VALID_PASS';
+          } else reason = 'INVALID_OR_EXPIRED_TOKEN';
+        }
+      }
+    } catch {
+      // Malformed payloads retain the INVALID_QR denial.
+    }
+    return { persistedPassId, residentId, unitId, decision, reason, identity };
+  }
+  async preview(qrPayload: string) {
+    const result = await this.inspectQr(qrPayload);
+    if (result.decision !== AccessDecision.ALLOWED || !result.identity)
+      throw new BadRequestException(result.reason);
+    const pass = result.identity;
+    return {
+      residentId: pass.residentId,
+      residentName: pass.resident.name,
+      unitCode: pass.resident.unit.code,
+      validUntil: pass.validUntil.toISOString(),
+    };
+  }
+  async arrivals(residentId: string) {
+    if (!residentId)
+      throw new BadRequestException('Resident identity required');
+    const events = await this.events.find({
+      where: {
+        residentId,
+        decision: AccessDecision.ALLOWED,
+        direction: AccessDirection.ENTRY,
+      },
+      relations: { unit: true },
+      order: { occurredAt: 'DESC', id: 'DESC' },
+      take: 50,
+    });
+    return {
+      items: events.map((event) => ({
+        id: event.id,
+        visitorName: event.visitorName ?? null,
+        occurredAt: event.occurredAt.toISOString(),
+        unitCode: event.unit?.code ?? null,
+      })),
+    };
   }
   private async toValidationResponse(event: AccessEvent) {
     const identity =
@@ -353,9 +405,17 @@ function fingerprintValidationRequest(
   qrPayload: string,
   direction: AccessDirection,
   guardId: string,
+  visitorName?: string,
 ) {
   return createHash('sha256')
-    .update(JSON.stringify({ direction, guardId, qrPayload }))
+    .update(
+      JSON.stringify({
+        direction,
+        guardId,
+        qrPayload,
+        ...(visitorName !== undefined ? { visitorName } : {}),
+      }),
+    )
     .digest('hex');
 }
 

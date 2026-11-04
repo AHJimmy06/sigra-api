@@ -1,5 +1,9 @@
+import { Transform } from 'class-transformer';
 import {
   IsBoolean,
+  IsEmail,
+  MinLength,
+  ValidateIf,
   IsDateString,
   IsEnum,
   IsInt,
@@ -33,7 +37,22 @@ export class GuardGateAuthorizationResponseDto {
 export class CreatePassDto {
   @IsInt() @Min(1) @Max(30) validDays!: number;
 }
+export class PreviewAccessDto {
+  @ApiProperty()
+  @IsString()
+  @IsQrPayloadV1()
+  qrPayload!: string;
+}
 export class ValidateAccessDto {
+  @ApiPropertyOptional({ minLength: 1, maxLength: 120 })
+  @ValidateIf((_object, value) => value !== undefined)
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  @IsString()
+  @MinLength(1)
+  @MaxLength(120)
+  visitorName?: string;
   @IsString() @IsQrPayloadV1() qrPayload!: string;
   @IsUUID() clientEventId!: string;
   @IsEnum(AccessDirection) direction!: AccessDirection;
@@ -178,4 +197,49 @@ function IsQrPayloadV1(validationOptions?: ValidationOptions) {
       },
     });
   };
+}
+
+export class CreateGuardDto {
+  @ApiProperty()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim().toLowerCase() : value,
+  )
+  @IsEmail()
+  email!: string;
+  @ApiProperty({ minLength: 8, maxLength: 72 })
+  @IsString()
+  @MinLength(8)
+  @MaxLength(72)
+  password!: string;
+  @ApiPropertyOptional({ maxLength: 120 })
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  @IsString()
+  @MinLength(1)
+  @MaxLength(120)
+  displayName?: string;
+}
+export class GuardResponseDto {
+  @ApiProperty({ format: 'uuid' }) id!: string;
+  @ApiProperty() email!: string;
+  @ApiProperty({ nullable: true, type: String }) displayName!: string | null;
+  @ApiProperty() active!: boolean;
+  @ApiProperty() authorized!: boolean;
+}
+export class PreviewAccessResponseDto {
+  @ApiProperty({ format: 'uuid' }) residentId!: string;
+  @ApiProperty() residentName!: string;
+  @ApiProperty() unitCode!: string;
+  @ApiProperty({ format: 'date-time' }) validUntil!: string;
+}
+export class ArrivalResponseDto {
+  @ApiProperty({ format: 'uuid' }) id!: string;
+  @ApiProperty({ nullable: true, type: String }) visitorName!: string | null;
+  @ApiProperty({ format: 'date-time' }) occurredAt!: string;
+  @ApiProperty({ nullable: true, type: String }) unitCode!: string | null;
+}
+export class ArrivalsResponseDto {
+  @ApiProperty({ type: [ArrivalResponseDto] }) items!: ArrivalResponseDto[];
 }

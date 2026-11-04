@@ -62,6 +62,13 @@ export class AccessEvent {
   unit!: ResidentialUnit | null;
   @Column({ type: 'enum', enum: AccessDecision }) decision!: AccessDecision;
   @Column({ type: 'enum', enum: AccessDirection }) direction!: AccessDirection;
+  @Column({
+    name: 'visitor_name',
+    type: 'varchar',
+    length: 120,
+    nullable: true,
+  })
+  visitorName!: string | null;
   @Column() reason!: string;
   @CreateDateColumn({ name: 'occurred_at' }) occurredAt!: Date;
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })

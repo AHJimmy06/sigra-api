@@ -19,9 +19,9 @@ npm run migration:run
 npm run start:dev
 ```
 
-The development Compose stack binds PostgreSQL only to `127.0.0.1` on `SIGRA_POSTGRES_PORT` (default `55439`) and stores data in a project-specific Docker volume. `DATABASE_PASSWORD` and `SIGRA_POSTGRES_PASSWORD` must contain the same local-only development value.
+The API listens on port `3300` by default. The development Compose stack binds PostgreSQL only to `127.0.0.1:55440` and uses the isolated Compose project `sigra-api-local`, which gives it a separate Docker network and data volume. `DATABASE_PASSWORD` and `SIGRA_POSTGRES_PASSWORD` must contain the same local-only development value.
 
-The API is available at `http://localhost:3000/api`. TypeORM `synchronize` is always disabled. Set `DATABASE_RUN_MIGRATIONS=true` only when automatic startup migrations are intentionally desired.
+The API is available at `http://localhost:3300/api`. TypeORM `synchronize` is always disabled. Set `DATABASE_RUN_MIGRATIONS=true` only when automatic startup migrations are intentionally desired.
 
 The database role that runs the initial migrations must be allowed to execute
 `CREATE EXTENSION` for both `pgcrypto` and `pg_trgm`. Managed PostgreSQL services
@@ -76,17 +76,17 @@ Maintenance creation accepts multipart fields `clientRequestId`, `description`, 
 
 ## API contract and examples
 
-Swagger UI is served at `http://localhost:3000/api/docs`. Generate the versioned OpenAPI artifact with `npm run openapi:generate`, and verify that the checked-in artifact is current with `npm run openapi:check`.
+Swagger UI is served at `http://localhost:3300/api/docs`. Generate the versioned OpenAPI artifact with `npm run openapi:generate`, and verify that the checked-in artifact is current with `npm run openapi:check`.
 
 ```bash
-curl -X POST http://localhost:3000/api/auth/login \
+curl -X POST http://localhost:3300/api/auth/login \
   -H 'Content-Type: application/json' \
   -d '{"email":"admin@example.com","password":"replace-with-development-password"}'
 
-curl 'http://localhost:3000/api/residents?page=1&pageSize=10' \
+curl 'http://localhost:3300/api/residents?page=1&pageSize=10' \
   -H 'Authorization: Bearer replace-with-access-token'
 
-curl 'http://localhost:3000/api/access/events?search=ana&from=2026-09-01&to=2026-09-07&page=1&pageSize=10' \
+curl 'http://localhost:3300/api/access/events?search=ana&from=2026-09-01&to=2026-09-07&page=1&pageSize=10' \
   -H 'Authorization: Bearer replace-with-admin-access-token'
 ```
 

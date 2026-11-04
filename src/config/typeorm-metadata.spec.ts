@@ -1454,7 +1454,10 @@ describe('PostgreSQL entity metadata', () => {
     expect(
       dataSource.migrations.filter((item) => item.name === migration.name),
     ).toHaveLength(1);
-    expect(dataSource.migrations.at(-2)?.name).toBe(migration.name);
+    const authorIndex = dataSource.migrations.findIndex((item) => item.name === migration.name);
+    expect(dataSource.migrations[authorIndex + 1]?.name).toBe(
+      new AddAnnouncementChangeFeed1724600010000().name,
+    );
     expect(up.join('\n')).toContain('"display_name" varchar(120)');
     expect(up.join('\n')).toContain('"author_id_snapshot" uuid');
     expect(up.join('\n')).toContain(
@@ -1491,8 +1494,12 @@ describe('PostgreSQL entity metadata', () => {
   });
 
   it('registers the additive 3C change-feed migration after the immutable 3A migration', () => {
-    expect(dataSource.migrations.at(-1)?.name).toBe(
-      new AddAnnouncementChangeFeed1724600010000().name,
+    const feedIndex = dataSource.migrations.findIndex(
+      (item) => item.name === new AddAnnouncementChangeFeed1724600010000().name,
+    );
+    expect(feedIndex).toBeGreaterThan(0);
+    expect(dataSource.migrations[feedIndex - 1]?.name).toBe(
+      'AddAnnouncementAuthorSchema1724600009000',
     );
   });
 

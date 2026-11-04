@@ -22,6 +22,11 @@ import { Role } from '../common/role.enum';
 import { Roles } from '../common/roles.decorator';
 import { RolesGuard } from '../common/roles.guard';
 import {
+  PreviewAccessDto,
+  PreviewAccessResponseDto,
+  ArrivalsResponseDto,
+  CreateGuardDto,
+  GuardResponseDto,
   AccessEventQueryDto,
   AccessPassResponseDto,
   CreatePassDto,
@@ -105,6 +110,37 @@ export class AccessController {
     );
   }
 
+  @Get('guards')
+  @Roles(Role.ADMIN)
+  @ApiOkResponse({ type: [GuardResponseDto] })
+  listGuards() {
+    return this.guardAuthorization.listGuards();
+  }
+  @Post('guards')
+  @Roles(Role.ADMIN)
+  @ApiCreatedResponse({ type: GuardResponseDto })
+  createGuard(
+    @CurrentUser() actor: AuthUser,
+    @Body() dto: CreateGuardDto,
+    @Req() request: Request,
+  ) {
+    return this.guardAuthorization.createGuard(dto, actor, request.ip);
+  }
+  @Get('arrivals')
+  @Roles(Role.RESIDENT)
+  @ApiOkResponse({ type: ArrivalsResponseDto })
+  arrivals(@CurrentUser() user: AuthUser) {
+    return this.access.arrivals(user.residentId!);
+  }
+  @Post('preview')
+  @HttpCode(HttpStatus.OK)
+  @Roles(Role.GUARD)
+  @UseGuards(GuardGateAuthorizationGuard, ThrottlerGuard)
+  @Header('Cache-Control', 'no-store')
+  @ApiOkResponse({ type: PreviewAccessResponseDto })
+  preview(@Body() dto: PreviewAccessDto) {
+    return this.access.preview(dto.qrPayload);
+  }
   @Post('validate')
   @HttpCode(HttpStatus.OK)
   @Roles(Role.GUARD)
@@ -122,6 +158,7 @@ export class AccessController {
       user,
       getRequestId(request),
       request.ip,
+      dto.visitorName,
     );
   }
 }
