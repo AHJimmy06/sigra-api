@@ -76,11 +76,11 @@ beforeAll(async () => {
   await proof.initialize();
   await proof.runMigrations();
   await proof.destroy();
-});
+}, 30000);
 
 afterAll(async () => {
   if (containerName) await execFile('docker', ['rm', '--force', containerName]);
-});
+}, 30000);
 
 function operationFacts(operationId: string): OperationFacts {
   return {

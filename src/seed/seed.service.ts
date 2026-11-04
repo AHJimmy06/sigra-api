@@ -54,19 +54,17 @@ export class SeedService implements OnApplicationBootstrap {
         `Seed password for ${role} must contain at least 12 characters`,
       );
     const normalized = email.toLowerCase();
-    const existing = await this.users.findOneBy({ email: normalized });
-    if (existing) {
-      let updated = false;
-      if (existing.displayName === null) {
-        existing.displayName = displayName;
-        updated = true;
-      }
-      if (role === Role.GUARD && !existing.guardGateAuthorized) {
-        existing.guardGateAuthorized = true;
-        updated = true;
-      }
-      if (updated) {
-        await this.users.save(existing);
+    const autoGrantGuard =
+      role === Role.GUARD &&
+      process.env.SEED_GUARD_GATE_AUTHORIZED === 'true';
+    if (await this.users.existsBy({ email: normalized })) {
+      await this.fillNullDisplayName(this.users, normalized, displayName);
+      if (autoGrantGuard) {
+        const user = await this.users.findOneBy({ email: normalized });
+        if (user && !user.guardGateAuthorized) {
+          user.guardGateAuthorized = true;
+          await this.users.save(user);
+        }
       }
       return;
     }
@@ -78,7 +76,7 @@ export class SeedService implements OnApplicationBootstrap {
         active: true,
         displayName,
         residentId: null,
-        guardGateAuthorized: role === Role.GUARD,
+        ...(autoGrantGuard ? { guardGateAuthorized: true } : {}),
       }),
     );
     this.logger.log(`Created development ${role} account for ${normalized}`);
